@@ -1,128 +1,120 @@
 # tauko
 
-*tauko* (fi): a pause, a break.
+**Learn something in the 30 seconds while Claude Code works, instead of scrolling.**
 
-Learn anything in the 30-second gaps while Claude Code works, instead of scrolling reels.
-When you press enter, a card is waiting next to the chat. When Claude finishes, tauko tells you
-to go back.
+When you send Claude a prompt, a flashcard opens beside the chat. Answer a card or two, and when
+Claude finishes, tauko tells you to go back. Spaced repetition decides what you see, so
+those small gaps add up to real retention.
 
-- **Any subject:** a course is a folder of JSON. It ships with **Finnish B1** (8 units, 504 cards,
-  following the *Suomen mestari 3* progression with original content)
-- **Spaced repetition** with FSRS: due cards first, then 20 new per day
-- **Two modes:** *tap* (recall, reveal, self-grade) and *type* (auto-checked, tolerant of missing
-  diacritics and typos)
-- **Self-quizzes:** 10 typed questions per unit or course, scored
-- **Everywhere:** a pane inside Claude Code, the terminal, the browser and the phone, all
-  sharing one state
-- **Claude Code aware:** hooks report busy/idle, start the server on session start, and show a
-  status line
+![The tauko pane in Claude Code](docs/img/pane.png)
 
-See [docs/DESIGN.md](docs/DESIGN.md) for the why, the content model and the roadmap.
+*tauko* is Finnish for "a pause".
 
-## Install (one time)
+## Install
 
 ```sh
-make install                                                   # tauko binary → ~/go/bin
-claude plugin marketplace add ~/go/src/github.com/personal/tauko
-claude plugin install tauko@tauko --scope user                 # the pane, in every session
+curl -fsSL https://raw.githubusercontent.com/ralihachev/tauko/main/install.sh | sh
 ```
 
-Then merge [`hooks/claude-settings.json`](hooks/claude-settings.json) into `~/.claude/settings.json`:
+That's all. The script:
+1. Downloads one binary for macOS or Linux and verifies it.
+2. Puts it in `~/.local/bin` (no sudo).
+3. Installs the Claude Code plugin.
 
-| Hook | Runs | Effect |
-|---|---|---|
-| `SessionStart` | `tauko ensure` | starts the server in the background if it isn't running |
-| `UserPromptSubmit` | `tauko signal busy` | clients show "Claude is working, your turn" |
-| `Stop`, `Notification` | `tauko signal idle` | clients show "✓ Claude finished" |
-| `statusLine` | `tauko status` | `📖 14 to do · 6 today · 🔥3` |
+Start a new Claude Code session and send a prompt.
 
-The hooks are fast and never fail, so they won't slow Claude down.
+<details>
+<summary>Other ways to install</summary>
+
+```sh
+go install github.com/ralihachev/tauko/cmd/tauko@latest && tauko setup   # Go 1.26+
+```
+
+Or from source: `git clone https://github.com/ralihachev/tauko && cd tauko && make install && tauko setup`.
+</details>
 
 ## Use
 
-**In Claude Code:** press enter on a prompt and the **tauko** pane opens with the cursor in the
-answer field. Type the answer and press `enter` to check it, then `enter` or `1–4` to grade. `m`
-switches between tap and type, `Esc` goes back to the prompt, and `/tauko` opens the pane by hand.
-After editing the plugin, run `/reload-plugins`.
+**In Claude Code**, cards come to you:
 
-**Terminal:**
+| Key | Does |
+|---|---|
+| type + `enter` | check your answer (typos and missing ä/ö count as "almost") |
+| `enter` or `1`–`4` | grade it: Again, Hard, Good, Easy |
+| `m` | switch between typing and tap-to-reveal |
+| `Esc` | back to the prompt |
+| `ctrl+x tab` | back to the card |
+| `/tauko` | open the pane by hand |
+
+**Pane placement:** in Claude Code's fullscreen mode (`/config`, or `"tui": "fullscreen"`), the pane
+docks beside the chat. Otherwise it sits above the prompt. The status line shows what's left
+(`📖 14 to do · 6 today · 🔥3`).
+
+**Anywhere else:**
 
 ```sh
-tauko                          # learn, type mode (default)
-tauko learn -mode tap          # recall + self-grade
-tauko learn -course fi-b1      # one course (or -unit b1-03)
-tauko quiz -unit b1-03         # 10-question self-quiz
-tauko units                    # courses and progress
-tauko stats
+tauko                     # learn in the terminal
+tauko quiz -unit b1-03    # 10-question self-quiz, scored
+tauko units               # courses and progress
 ```
 
-**Browser:** http://127.0.0.1:8787. Keys: `space` reveals, `1–4` grade, `enter` accepts the
-suggested grade.
+<img src="docs/img/web.png" alt="tauko in the browser" width="300" align="right">
 
-**Phone:** the server only listens on localhost unless you set a token:
+**In the browser:** open http://127.0.0.1:8787. It shows "Claude is working" and "Claude is done"
+too. Keys: `space` reveal, `1`–`4` grade.
+
+**On your phone:** the server only listens on your machine unless you give it a token:
 
 ```sh
 TAUKO_TOKEN=$(openssl rand -hex 16) tauko serve -addr 0.0.0.0:8787
 ```
 
-Reach it over [Tailscale](https://tailscale.com) (free) at `http://<mac-tailscale-ip>:8787/?token=<token>`
-and use **Add to Home Screen**. Put it where Instagram used to be.
+Then open `http://<your-computer>:8787/?token=<token>` on the phone (over [Tailscale](https://tailscale.com),
+for example) and **Add to Home Screen**. Put it where Instagram used to be.
 
-## Adding a course
+<br clear="right">
 
-```
-content/courses/<course>/
-  course.json
-  decks/01-<unit>.json, 02-<unit>.json, …    one file per unit, in order
-```
+## Courses
 
-`course.json`:
+tauko ships with **Finnish B1**: 8 units and 504 cards. They follow the topics and grammar of the
+*Suomen mestari 3* textbook, with original content. tauko itself isn't tied to a language: a
+course is a folder of JSON, and anything with questions and answers works (a language, a
+certification, your team's codebase). See [docs/COURSES.md](docs/COURSES.md) to write one.
+Pull requests with new courses are welcome.
 
-```jsonc
-{
-  "id": "go-concurrency",            // unique, permanent
-  "title": "Go concurrency",
-  "subject": "programming",
-  "description": "…",
-  "labels": { "qa": "Answer" },       // optional prompt labels per card kind
-  "focus_label": "Concept",           // what a unit's focus note is called
-  "chars": []                         // extra keys for phone keyboards, e.g. ["ä", "ö"]
-}
-```
+## How it works
 
-A unit (`decks/*.json`):
+- **One small server** (`tauko serve`) on `127.0.0.1:8787` keeps your progress in SQLite under `~/.tauko`.
+  The Claude Code plugin starts it for you.
+- **FSRS scheduling** shows each card just before you'd forget it: due cards first, then 20 new ones a day.
+- **Clients:** the Claude Code pane, the terminal, and the browser/phone app all use the same
+  server, so progress is shared.
+- **Privacy:** nothing leaves your machine. No account, no telemetry.
 
-```jsonc
-{
-  "id": "go-01", "title": "Channels", "subtitle": "…", "level": "",
-  "focus": "Nil and closed channels", "focus_note": "Short explanation shown on demand.",
-  "vocab": [                          // term ↔ meaning: two cards each (recognize, produce)
-    { "id": "go-01-v01", "term": "select", "meanings": ["wait on several channels"],
-      "example": "…", "example_translation": "…" }
-  ],
-  "drills": [                         // cloze | transform | qa
-    { "id": "go-01-q01", "type": "qa", "prompt": "What does a send on a nil channel do?",
-      "answers": ["blocks forever"], "note": "…" },
-    { "id": "go-01-q02", "type": "qa", "prompt": "When is a buffered channel the right call?",
-      "answers": ["reference answer"], "self_grade": true }   // free-form: learner grades
-  ]
-}
+More in [docs/DESIGN.md](docs/DESIGN.md), including the roadmap: a course generator, quizzes about
+the code your agent just wrote, and team leagues.
+
+## Troubleshooting
+
+```sh
+tauko doctor        # checks the binary, server and plugin, and says how to fix each
 ```
 
-**IDs are permanent and unique across all courses:** review history is keyed by them, so fix
-a card's text freely but never reuse an ID for something else. `make test` validates every shipped
-course. `make dev` serves courses from disk, so edits apply on restart without rebuilding.
+- **No pane appears:** run `/reload-plugins` in Claude Code, or start a new session.
+- **Typing goes to the prompt instead of the card:** press `ctrl+x tab`.
+- **Server log:** `~/.tauko/serve.log`
 
-## Layout
+## Uninstall
 
+```sh
+tauko uninstall          # removes the plugin and stops the server; keeps your progress
+tauko uninstall -purge   # also deletes ~/.tauko
 ```
-cmd/tauko          CLI: serve, ensure, learn, quiz, units, stats, status, signal
-internal/content   course/unit loading, card expansion, new-card ordering
-internal/check     typed-answer grading (diacritic/typo tolerance)
-internal/store     SQLite + FSRS scheduling, review log, quiz results
-internal/server    HTTP API, card selection, busy signal, token auth
-web/               PWA (vanilla JS, embedded)
-claude-mod/        Claude Code plugin: the pane (claude plugin test claude-mod)
-content/courses/   courses
-hooks/             Claude Code settings snippet
-```
+
+## Contributing
+
+Courses, bug reports and code are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+The code is [Apache-2.0](LICENSE). Course content is [CC BY-SA 4.0](content/LICENSE).

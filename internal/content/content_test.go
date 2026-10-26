@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	shipped "github.com/personal/tauko/content"
+	shipped "github.com/ralihachev/tauko/content"
 )
 
 // TestShippedCourses validates the embedded content, so a broken deck fails the build.

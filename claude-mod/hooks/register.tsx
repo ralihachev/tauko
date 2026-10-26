@@ -1,12 +1,14 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { Color, EngineInterface, Register, RenderChildren } from 'claude-code'
 
 import type { Card, Check, Mode, View } from '../types'
 
 // The tauko server (`tauko serve`) holds the cards and the schedule; this pane is
-// one more client of it, like the terminal and the PWA.
+// one more client of it, like the terminal and the PWA. The plugin also starts the
+// server, reports busy/idle and keeps the status line, so installing it is all it takes.
 const BASE = 'http://127.0.0.1:8787'
 const PANE = 'tauko'
+export const INSTALL = 'curl -fsSL https://raw.githubusercontent.com/ralihachev/tauko/main/install.sh | sh'
 
 const EMPTY: View = {
   phase: 'loading',
@@ -27,6 +29,7 @@ const isBusy = atom({ plugin: 'tauko', key: 'isBusy' } as const, false)
 const mode = atom({ plugin: 'tauko', key: 'mode' } as const, 'type' as Mode)
 const lastId = atom({ plugin: 'tauko', key: 'lastId' } as const, '')
 const reviewed = atom({ plugin: 'tauko', key: 'reviewed' } as const, 0)
+const isInstalled = atom({ plugin: 'tauko', key: 'isInstalled' } as const, true)
 
 type NextResponse = {
   card: Card | null
@@ -119,6 +122,57 @@ async function grade($: EngineInterface, rating: number): Promise<void> {
   await update($, lastId, () => card.id)
   await update($, reviewed, n => n + 1)
   await loadNext($)
+  void refreshStatus($)
+}
+
+// Where install.sh, `go install` and Homebrew put the binary; PATH first.
+async function candidates($: EngineInterface): Promise<string[]> {
+  const home = await $.env.get('HOME').catch(() => undefined)
+  const out = ['tauko']
+  if (home) {
+    out.push(home + '/.local/bin/tauko', home + '/go/bin/tauko')
+  }
+  out.push('/opt/homebrew/bin/tauko', '/usr/local/bin/tauko')
+  return out
+}
+
+// ensureServer starts the server unless it already answers (`tauko ensure` returns at
+// once then). It reports whether a tauko binary was found at all.
+async function ensureServer($: EngineInterface): Promise<boolean> {
+  for (const bin of await candidates($)) {
+    try {
+      const run = await $.process.run([bin, 'ensure'], { timeoutMs: 8000 })
+      if (run.exitCode === 0) {
+        return true
+      }
+      $.ui.log('tauko ensure: ' + run.stderr.trim())
+      return true
+    } catch {
+      // Not at this path; try the next one.
+    }
+  }
+  return false
+}
+
+// signal tells other clients (browser, phone) whether Claude is busy. Best effort.
+async function signal($: EngineInterface, state: 'busy' | 'idle'): Promise<void> {
+  try {
+    await api($, 'POST', '/api/signal', { state })
+  } catch {
+    // Server down: the pane says so when it opens.
+  }
+}
+
+type StatsResponse = { due: number; new_left: number; stats: { reviews_today: number; streak_days: number } }
+
+async function refreshStatus($: EngineInterface): Promise<void> {
+  try {
+    const s = await api<StatsResponse>($, 'GET', '/api/stats')
+    const streak = s.stats.streak_days > 0 ? ` · 🔥${s.stats.streak_days}` : ''
+    $.ui.status(`📖 ${s.due + s.new_left} to do · ${s.stats.reviews_today} today${streak}`)
+  } catch {
+    $.ui.status((await read($, isInstalled)) ? 'tauko: server off' : 'tauko: not installed')
+  }
 }
 
 function relTime(iso: string): string {
@@ -143,6 +197,12 @@ export const register: Register = on => {
       name: 'tauko',
       description: 'Open the tauko flashcard pane',
     })
+    // Start the server in the background; the session doesn't wait for it.
+    void (async () => {
+      const found = await ensureServer($)
+      await update($, isInstalled, () => found)
+      await refreshStatus($)
+    })().catch(err => $.ui.log('tauko: start-up failed: ' + String(err)))
     return next(e)
   })
 
@@ -157,6 +217,7 @@ export const register: Register = on => {
     // Never let the pane get in the way of the prompt itself.
     try {
       await update($, isBusy, () => true)
+      void signal($, 'busy')
       await openPane($, true)
     } catch (err) {
       $.ui.log('tauko: ' + String(err))
@@ -166,6 +227,8 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     await update($, isBusy, () => false)
+    void signal($, 'idle')
+    void refreshStatus($)
     return next(e)
   })
 
@@ -178,42 +241,72 @@ export const register: Register = on => {
     const busy = await read($, isBusy)
     const m: Mode = Input ? await read($, mode) : 'tap'
     const count = await read($, reviewed)
+    const installed = await read($, isInstalled)
+    const rule = '─'.repeat(Math.max(8, Math.min(60, e.props.bodyColumns - 6)))
 
-    const header = (
+    // Keys reach the pane only while it holds the focus; Claude Code hands the focus back
+    // to the prompt when a turn ends or the person types there. Say so, and how to return.
+    const focusKey = e.surface === 'terminal' ? 'ctrl+x tab' : 'click here'
+    const status = (
       <Box flexDirection="column" marginBottom={1}>
-        {busy ? (
-          <Text color="claude">● Claude is working, your turn</Text>
-        ) : (
-          <Text color="success" bold>
-            ✓ Claude finished. Esc to go back, or keep going
+        <Box justifyContent="space-between">
+          {busy ? (
+            <Text color="claude" bold>
+              ● Claude is working · your turn
+            </Text>
+          ) : (
+            <Text color="success" bold>
+              ✓ Claude is done
+            </Text>
+          )}
+          <Text dimColor>
+            {v.due} due · {v.newLeft} new · {count} ✓
+          </Text>
+        </Box>
+        {e.props.isFocused ? null : (
+          <Text color="warning" bold>
+            ⌨ {focusKey} to answer
           </Text>
         )}
-        <Text dimColor>
-          {v.due} due · {v.newLeft} new · {count} this session · {m} mode
-        </Text>
       </Box>
     )
 
-    const toggle = Input ? (
-      <Button
-        key="mode"
-        hotkey="m"
-        plain
-        dimColor
-        label={m === 'type' ? 'switch to tap' : 'switch to type'}
-        onPress={async () => {
-          await update($, mode, cur => (cur === 'type' ? 'tap' : 'type'))
-        }}
-      />
-    ) : null
+    const footer = (keys: string) => (
+      <Box marginTop={1}>
+        <Text dimColor>{keys}</Text>
+      </Box>
+    )
+
+    // A framed card: everything about one item lives inside it.
+    const frame = (color: Color, children: RenderChildren) => (
+      <Box flexDirection="column" borderStyle="round" borderColor={color} paddingX={2} paddingY={1}>
+        {children}
+      </Box>
+    )
 
     if (v.phase === 'offline') {
       return (
         <Box flexDirection="column">
-          {header}
-          <Text color="error">tauko server not reachable</Text>
-          <Text dimColor>Start it with: ~/go/bin/tauko serve</Text>
-          <Button key="retry" hotkey="r" variant="primary" autoFocus label="Retry" onPress={() => loadNext($)} />
+          {status}
+          {frame(
+            'error',
+            <Box flexDirection="column">
+              <Text color="error" bold>
+                Can't reach the tauko server
+              </Text>
+              {installed ? (
+                <Text dimColor>It starts with Claude Code. By hand: tauko ensure (or tauko doctor)</Text>
+              ) : (
+                <Box flexDirection="column">
+                  <Text>tauko isn't installed yet. In a terminal, run:</Text>
+                  <Text color="suggestion">{INSTALL}</Text>
+                </Box>
+              )}
+            </Box>,
+          )}
+          <Box marginTop={1}>
+            <Button key="retry" hotkey="r" variant="primary" autoFocus label="r  Retry" onPress={() => loadNext($)} />
+          </Box>
         </Box>
       )
     }
@@ -221,7 +314,7 @@ export const register: Register = on => {
     if (v.phase === 'loading') {
       return (
         <Box flexDirection="column">
-          {header}
+          {status}
           <Text dimColor>Loading…</Text>
         </Box>
       )
@@ -230,113 +323,166 @@ export const register: Register = on => {
     if (v.phase === 'empty' || !v.card) {
       return (
         <Box flexDirection="column">
-          {header}
-          <Text color="success" bold>
-            ✓ All done!
-          </Text>
-          <Text dimColor>Nothing due right now{v.message ? `, next card ${v.message}` : ''}.</Text>
-          <Button key="refresh" hotkey="r" label="Check again" onPress={() => loadNext($)} />
+          {status}
+          {frame(
+            'success',
+            <Box flexDirection="column" alignItems="center">
+              <Text color="success" bold size="title">
+                ✓ All done
+              </Text>
+              <Text dimColor>Nothing due{v.message ? `. Next card ${v.message}` : ' right now'}.</Text>
+            </Box>,
+          )}
+          <Box marginTop={1}>
+            <Button key="refresh" hotkey="r" label="r  Check again" onPress={() => loadNext($)} />
+          </Box>
         </Box>
       )
     }
 
     const card = v.card
-    const prompt = (
-      <Box flexDirection="column" marginBottom={1}>
-        <Text dimColor>
-          {v.courseTitle ? `${v.courseTitle} · ` : ''}
-          {card.unit_title}
-          {v.focus ? ` · ${v.focus}` : ''}
-          {v.isNew ? ' · new' : ''}
-        </Text>
-        <Text color="suggestion" bold>
-          {card.instruction}
-        </Text>
-        <Text bold>{card.prompt}</Text>
-        {card.hint ? <Text dimColor>({card.hint})</Text> : null}
+    const where = [v.courseTitle, card.unit_title].filter(Boolean).join(' · ')
+    const question = (
+      <Box flexDirection="column">
+        <Box justifyContent="space-between">
+          <Text dimColor wrap="truncate-end">
+            {where}
+          </Text>
+          {v.isNew ? (
+            <Text color="warning" bold>
+              {' '}NEW
+            </Text>
+          ) : null}
+        </Box>
+        {v.focus ? (
+          <Text dimColor italic>
+            {v.focus}
+          </Text>
+        ) : null}
+        <Box marginTop={1} flexDirection="column">
+          <Text color="suggestion" bold>
+            {card.instruction.toUpperCase()}
+          </Text>
+          <Text bold size="title">
+            {card.prompt}
+          </Text>
+          {card.hint ? (
+            <Text dimColor italic>
+              → {card.hint}
+            </Text>
+          ) : null}
+        </Box>
       </Box>
     )
 
     if (v.phase === 'ask') {
+      const typing = m === 'type' && Input
       return (
         <Box flexDirection="column">
-          {header}
-          {prompt}
-          {m === 'type' && Input ? (
-            <Input
-              key={'answer:' + card.id}
-              placeholder="Your answer…"
-              submitLabel={card.self_grade ? 'compare' : 'check'}
-              autoFocus
-              onSubmit={(value: string) => submit($, value)}
-            />
-          ) : (
-            <Button key="reveal" hotkey="r" variant="primary" autoFocus label="Reveal" onPress={() => reveal($)} />
-          )}
-          {toggle}
+          {status}
+          {frame('suggestion', question)}
+          <Box marginTop={1} flexDirection="column">
+            {typing ? (
+              <Input
+                key={'answer:' + card.id}
+                label="›"
+                placeholder="type your answer"
+                submitLabel={card.self_grade ? 'compare' : 'check'}
+                autoFocus
+                onSubmit={(value: string) => submit($, value)}
+              />
+            ) : (
+              <Button key="reveal" hotkey="r" variant="primary" autoFocus label="r  Show answer" onPress={() => reveal($)} />
+            )}
+          </Box>
+          {Input ? (
+            <Box marginTop={1}>
+              <Button
+                key="mode"
+                hotkey="m"
+                plain
+                dimColor
+                label={m === 'type' ? 'switch to tap mode' : 'switch to type mode'}
+                onPress={async () => {
+                  await update($, mode, cur => (cur === 'type' ? 'tap' : 'type'))
+                }}
+              />
+            </Box>
+          ) : null}
+          {footer(typing ? 'enter check · esc back to Claude' : 'enter reveal · esc back to Claude')}
         </Box>
       )
     }
 
     const check = v.check
     const suggested = check ? check.suggested_rating : 3
+    const tone = !check ? 'suggestion' : check.verdict === 'correct' ? 'success' : check.verdict === 'close' ? 'warning' : 'error'
     const verdict = check ? (
-      check.verdict === 'correct' ? (
-        <Text color="success" bold>
-          ✓ Correct
+      <Box flexDirection="column">
+        <Text color={tone} bold>
+          {check.verdict === 'correct' ? '✓ Correct' : check.verdict === 'close' ? `≈ Almost · ${check.reason}` : '✗ Not quite'}
         </Text>
-      ) : check.verdict === 'close' ? (
-        <Text color="warning" bold>
-          ≈ Almost ({check.reason}): {v.answer}
-        </Text>
-      ) : (
-        <Text color="error" bold>
-          ✗ Wrong{v.answer ? `: ${v.answer}` : ''}
-        </Text>
-      )
+        {check.verdict !== 'correct' && v.answer ? (
+          <Text dimColor>
+            you: <Text strikethrough={check.verdict === 'wrong'}>{v.answer}</Text>
+          </Text>
+        ) : null}
+      </Box>
     ) : v.answer ? (
-      <Text dimColor>Your answer: {v.answer}</Text>
+      <Text dimColor>you: {v.answer}</Text>
     ) : null
+
     const grades = [
-      { n: 1, label: 'Again' },
-      { n: 2, label: 'Hard' },
-      { n: 3, label: 'Good' },
-      { n: 4, label: 'Easy' },
+      { n: 1, label: 'Again', color: 'error' },
+      { n: 2, label: 'Hard', color: 'warning' },
+      { n: 3, label: 'Good', color: 'success' },
+      { n: 4, label: 'Easy', color: 'suggestion' },
     ]
 
     return (
       <Box flexDirection="column">
-        {header}
-        {prompt}
-        {verdict}
-        <Text color="success" bold>
-          {card.answers.join(' · ')}
-        </Text>
-        {card.translation ? <Text dimColor>{card.translation}</Text> : null}
-        {card.note ? <Text>💡 {card.note}</Text> : null}
-        {card.example ? (
-          <Text dimColor>
-            {card.example}
-            {card.example_translation ? ` (${card.example_translation})` : ''}
-          </Text>
-        ) : null}
-        <Box marginTop={1} gap={1}>
-          {grades.map(g =>
-            g.n === suggested ? (
-              <Button
-                key={'grade:' + g.n}
-                hotkey={String(g.n)}
-                variant="primary"
-                autoFocus
-                label={`${g.n} ${g.label}`}
-                onPress={() => grade($, g.n)}
-              />
-            ) : (
-              <Button key={'grade:' + g.n} hotkey={String(g.n)} label={`${g.n} ${g.label}`} onPress={() => grade($, g.n)} />
-            ),
-          )}
+        {status}
+        {frame(
+          tone,
+          <Box flexDirection="column">
+            {question}
+            <Text dimColor>{rule}</Text>
+            {verdict}
+            <Box marginTop={verdict ? 1 : 0} flexDirection="column">
+              <Text color="success" bold size="heading">
+                {card.answers.join('  ·  ')}
+              </Text>
+              {card.translation ? <Text dimColor>{card.translation}</Text> : null}
+            </Box>
+            {card.note ? (
+              <Box marginTop={1}>
+                <Text>💡 {card.note}</Text>
+              </Box>
+            ) : null}
+            {card.example ? (
+              <Box marginTop={1} flexDirection="column">
+                <Text italic>“{card.example}”</Text>
+                {card.example_translation ? <Text dimColor italic>{card.example_translation}</Text> : null}
+              </Box>
+            ) : null}
+          </Box>,
+        )}
+        <Box marginTop={1} gap={1} flexWrap="wrap">
+          {grades.map(g => (
+            <Button
+              key={'grade:' + g.n}
+              hotkey={String(g.n)}
+              variant={g.n === suggested ? 'primary' : undefined}
+              autoFocus={g.n === suggested ? true : undefined}
+              onPress={() => grade($, g.n)}
+            >
+              <Text color={g.color} bold={g.n === suggested}>
+                {g.n} {g.label}
+              </Text>
+            </Button>
+          ))}
         </Box>
-        <Text dimColor>Enter = {grades[suggested - 1]?.label ?? 'Good'} · 1–4 to grade · Esc to go back</Text>
+        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · esc back to Claude`)}
       </Box>
     )
   })

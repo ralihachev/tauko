@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/personal/tauko/internal/check"
-	"github.com/personal/tauko/internal/content"
-	"github.com/personal/tauko/internal/store"
+	"github.com/ralihachev/tauko/internal/check"
+	"github.com/ralihachev/tauko/internal/content"
+	"github.com/ralihachev/tauko/internal/store"
 )
 
 // Config for the server.

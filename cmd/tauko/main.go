@@ -10,18 +10,25 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
-	shipped "github.com/personal/tauko/content"
-	"github.com/personal/tauko/internal/content"
-	"github.com/personal/tauko/internal/server"
-	"github.com/personal/tauko/internal/store"
-	"github.com/personal/tauko/web"
+	shipped "github.com/ralihachev/tauko/content"
+	"github.com/ralihachev/tauko/internal/content"
+	"github.com/ralihachev/tauko/internal/server"
+	"github.com/ralihachev/tauko/internal/store"
+	"github.com/ralihachev/tauko/web"
 )
+
+// version is set at release time with -ldflags "-X main.version=v1.2.3".
+var version = "dev"
 
 const usage = `tauko: learn anything in the gaps while Claude works
 
 usage:
+  tauko setup                                  install the Claude Code pane, start the server
+  tauko doctor                                 check the setup and say how to fix it
+  tauko uninstall [-purge]                     remove the pane and stop the server
   tauko serve [-addr 127.0.0.1:8787] [-db ~/.tauko/tauko.db] [-new-per-day 20] [-courses dir]
   tauko learn [-mode tap|type] [-course id] [-unit id]   review due + new cards (default command)
   tauko quiz  [-course id] [-unit id] [-n 10]            typed self-quiz, scored
@@ -48,19 +55,27 @@ func main() {
 	case "serve":
 		err = serve(args)
 	case "learn":
-		err = learn(args)
+		err = withServer(func() error { return learn(args) })
 	case "quiz":
-		err = quiz(args)
+		err = withServer(func() error { return quiz(args) })
 	case "units":
-		err = units()
+		err = withServer(units)
 	case "stats":
-		err = stats()
+		err = withServer(stats)
 	case "ensure":
 		err = ensure()
+	case "setup":
+		err = setup(args)
+	case "doctor":
+		err = doctor()
+	case "uninstall":
+		err = uninstall(args)
 	case "status":
 		status()
 	case "signal":
 		signal(args)
+	case "version", "-v", "--version":
+		fmt.Println("tauko", version)
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 	default:
@@ -106,8 +121,22 @@ func serve(args []string) error {
 	}
 	log.Printf("tauko: %d courses, %d units, %d cards, db %s", len(lib.Courses), len(lib.Units), len(lib.Cards), *dbPath)
 	log.Printf("tauko: listening on http://%s", *addr)
+	pidFile := filepath.Join(filepath.Dir(*dbPath), "serve.pid")
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
+		log.Printf("tauko: pid file: %v", err)
+	}
 	hs := &http.Server{Addr: *addr, Handler: srv.Handler(web.Files), ReadHeaderTimeout: 10 * time.Second}
 	return hs.ListenAndServe()
+}
+
+// withServer starts the local server first unless TAUKO_URL points somewhere else.
+func withServer(run func() error) error {
+	if os.Getenv("TAUKO_URL") == "" {
+		if err := ensure(); err != nil {
+			return err
+		}
+	}
+	return run()
 }
 
 func isLoopback(addr string) bool {

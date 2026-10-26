@@ -79,7 +79,7 @@ test('the server being down shows how to start it, on mobile too', async ($, on)
   await $.command.run({ command: 'tauko', args: '' })
 
   const ui = await $.ui.mount({ ...PANE, surface: 'mobile' })
-  expect((await ui.find({ type: 'Text', text: /not reachable/ }))?.text).toBe('tauko server not reachable')
+  expect((await ui.find({ type: 'Text', text: /reach the tauko server/ }))?.text).toBe("Can't reach the tauko server")
   await ui.unmount()
 })
 
@@ -109,12 +109,80 @@ test('a self-graded card shows your answer next to the reference, no auto-check'
   expect((await ui.find({ type: 'Text', text: /Go concurrency/ }))?.text).toContain('Channels')
 
   await ui.input({ key: 'answer:go-01-q2', text: 'when producer is bursty', kind: 'submit' })
-  expect((await ui.find({ type: 'Text', text: /Your answer/ }))?.text).toBe('Your answer: when producer is bursty')
+  expect((await ui.find({ type: 'Text', text: /^you:/ }))?.text).toBe('you: when producer is bursty')
   expect(calls.some(u => u.endsWith('/api/check'))).toBe(false)
 
   await ui.press({ key: 'grade:4' })
   expect(reviews).toEqual([
     { card_id: 'go-01-q2', rating: 4, mode: 'type:claude-pane', answer: 'when producer is bursty', verdict: '' },
   ])
+  await ui.unmount()
+})
+
+test('an unfocused pane says how to give it the keyboard', async ($, on) => {
+  on('http.fetch', () => json({ card: CARD, is_new: false, due: 1, new_left: 0 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const unfocused = await $.ui.mount({ ...PANE, props: { ...PANE.props, isFocused: false }, surface: 'terminal' })
+  expect((await unfocused.find({ type: 'Text', text: /ctrl\+x tab/ }))?.text).toContain('to answer')
+  await unfocused.unmount()
+
+  const focused = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await focused.find({ type: 'Text', text: /ctrl\+x tab/ })).toBeUndefined()
+  expect((await focused.find({ type: 'Text', text: /esc back/ }))?.text).toContain('esc back to Claude')
+  await focused.unmount()
+})
+
+// The session-start work runs in the background; let it settle.
+const settle = async () => {
+  for (let i = 0; i < 200; i++) await Promise.resolve()
+}
+
+test('session start starts the server with tauko ensure and sets the status line', async ($, on) => {
+  const runs: string[][] = []
+  const statuses: (string | undefined)[] = []
+  on('env.get', () => ({ value: '/home/u' }))
+  on('process.run', (_, e) => {
+    runs.push([...e.argv])
+    // Not on PATH; found in ~/.local/bin.
+    if (e.argv[0] === 'tauko') throw new Error('not found')
+    return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  on('http.fetch', () => json({ due: 2, new_left: 5, stats: { reviews_today: 7, streak_days: 3 } }))
+  on('ui.status', (_, e) => {
+    statuses.push(e.text)
+    return { value: undefined }
+  })
+  on('command.register', () => ({ value: { command: 'tauko' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await settle()
+
+  expect(runs.slice(0, 2)).toEqual([['tauko', 'ensure'], ['/home/u/.local/bin/tauko', 'ensure']])
+  expect(statuses.at(-1)).toBe('📖 7 to do · 7 today · 🔥3')
+})
+
+test('without the binary, the pane shows how to install it', async ($, on) => {
+  on('env.get', () => ({ value: '/home/u' }))
+  on('process.run', () => {
+    throw new Error('not found')
+  })
+  on('http.fetch', () => {
+    throw new Error('connection refused')
+  })
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('command.register', () => ({ value: { command: 'tauko' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await settle()
+  await $.command.run({ command: 'tauko', args: '' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /install\.sh/ }))?.text).toContain('curl -fsSL')
   await ui.unmount()
 })

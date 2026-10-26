@@ -46,6 +46,7 @@ declare module 'claude-code' {
       mode: Mode
       lastId: string
       reviewed: number
+      isInstalled: boolean
     }
   }
 }

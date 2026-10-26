@@ -1,6 +1,6 @@
-module github.com/personal/tauko
+module github.com/ralihachev/tauko
 
-go 1.27.2
+go 1.26.0
 
 require (
 	github.com/open-spaced-repetition/go-fsrs/v3 v3.3.1

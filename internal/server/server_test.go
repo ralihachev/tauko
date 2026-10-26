@@ -10,8 +10,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/personal/tauko/internal/content"
-	"github.com/personal/tauko/internal/store"
+	"github.com/ralihachev/tauko/internal/content"
+	"github.com/ralihachev/tauko/internal/store"
 )
 
 func newTestServer(t *testing.T) http.Handler {
