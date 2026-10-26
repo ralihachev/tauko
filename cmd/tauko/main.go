@@ -34,6 +34,7 @@ usage:
   tauko units                                  courses, units and progress
   tauko course [id|all]                        show courses, or switch the one you study
   tauko more [n]                               n more new cards today (default 10)
+  tauko gen "topic" [-level x] [-from file]    generate a course with Claude, verified, installed
   tauko stats                                  today's numbers
   tauko status                                 one line for the Claude Code status line
   tauko ensure                                 start the server in the background unless it runs
@@ -64,6 +65,8 @@ func main() {
 		err = withServer(units)
 	case "course", "courses":
 		err = withServer(func() error { return course(args) })
+	case "gen":
+		err = gen(args)
 	case "more":
 		err = withServer(func() error { return more(args) })
 	case "stats":
@@ -71,9 +74,7 @@ func main() {
 	case "ensure":
 		err = ensure()
 	case "restart":
-		stopServer()
-		time.Sleep(300 * time.Millisecond)
-		if err = ensure(); err == nil {
+		if err = restartServer(); err == nil {
 			ok("server restarted on " + serverURL())
 		}
 	case "setup":

@@ -122,6 +122,37 @@ Answer
   1 again · 2 hard · 3 good · 4 easy  [enter=2]
 ```
 
+### Generate one with Claude
+
+```sh
+tauko gen "Kubernetes networking" -level intermediate
+tauko gen "Finnish B2: verb rection" -units 4
+tauko gen "our payments service" -from docs/payments.md    # text, markdown or PDF
+```
+
+`tauko gen` uses Claude Code (`claude -p`, on your existing plan) in three steps:
+1. **Draft:** Claude writes the course.
+2. **Verify:** a second, independent pass checks every answer and fixes wrong or ambiguous cards.
+3. **Check and preview:** tauko runs its own course checks and shows you the result.
+
+On confirm, it installs the course and reloads the server. A 2-unit course takes about a minute.
+
+```
+→ Verifying every answer with a second, independent pass
+  ✓ 2 fixes:
+      - NodePort example: changed 'Open port 30080' to 'Connect to port 30080', because the client
+        connects to the port and Kubernetes opens it.
+→ Checking the course
+  ✓ valid
+
+Kubernetes Networking (kubernetes-networking)
+   1. Pods and Services                  15 cards
+   2. DNS, Ingress and Policies          15 cards
+```
+
+Generated courses are a draft, not a textbook: if a card looks wrong, edit it in `~/.tauko/courses/`
+(or delete the folder) and run `tauko restart`.
+
 ### Write your own in 2 minutes
 
 A course is a folder with two small JSON files. Make `~/.tauko/courses/kubernetes/course.json`:
@@ -224,6 +255,7 @@ Run `tauko doctor`: it checks the binary, server and plugin, and says how to fix
 | `tauko setup` | install the Claude Code plugin and start the server (safe to re-run) |
 | `tauko doctor` | check everything and say how to fix it |
 | `tauko learn` / `quiz` / `units` / `stats` | study and track progress in the terminal |
+| `tauko gen "topic"` | generate a course with Claude, verify it, install it (`-level`, `-units`, `-from file`, `-dry-run`) |
 | `tauko course [id\|all]` | show courses, or switch the one every client studies |
 | `tauko more [n]` | n more new cards today (default 10) |
 | `tauko restart` | restart the server after adding or editing a course |
@@ -232,7 +264,6 @@ Run `tauko doctor`: it checks the binary, server and plugin, and says how to fix
 
 ## Roadmap
 
-- **Course generator:** `tauko gen "kubernetes networking"` drafts a course and double-checks every answer.
 - **Diff quizzes:** questions about the code Claude just changed, to keep your own skills sharp.
 - **Imports** from Anki and CSV.
 - **More places to wait:** Cursor/VS Code, build and CI waits (`tauko run make test`).

@@ -56,7 +56,7 @@ func setup(args []string) error {
 	// Already installed? Bring it up to date, so re-running the installer upgrades both halves.
 	claudeCLI("plugin", "marketplace", "update", "tauko")
 	claudeCLI("plugin", "update", "tauko@tauko", "--scope", "user")
-	ok("plugin tauko@tauko installed and up to date (run /reload-plugins in open sessions)")
+	ok("plugin tauko@tauko installed and up to date (restart open Claude Code sessions to load an update)")
 
 	if path, removed, err := removeLegacyHooks(); err != nil {
 		warn("couldn't check " + path + " for old tauko hooks: " + err.Error())
