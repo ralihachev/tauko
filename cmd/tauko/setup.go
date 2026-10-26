@@ -96,6 +96,9 @@ func doctor() error {
 		var s statsResp
 		if err := newClient(time.Second).do("GET", "/api/stats", nil, &s); err == nil {
 			ok(fmt.Sprintf("%d cards · %d due · %d new left today", s.Cards, s.Due, s.NewLeft))
+			for _, w := range s.Warnings {
+				check(false, w, "fix the course (see docs/COURSES.md), then `tauko restart`")
+			}
 		}
 	}
 

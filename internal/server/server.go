@@ -21,6 +21,7 @@ import (
 type Config struct {
 	NewPerDay int    // new cards introduced per day
 	Token     string // optional bearer token; empty disables auth
+	Warnings  []string
 }
 
 // Server handles API requests.
@@ -332,7 +333,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"stats": st, "due": len(dueIDs), "new_left": newLeft, "cards": len(s.lib.Cards)})
+	writeJSON(w, map[string]any{"stats": st, "due": len(dueIDs), "new_left": newLeft, "cards": len(s.lib.Cards), "warnings": s.cfg.Warnings})
 }
 
 type quizRequest struct {

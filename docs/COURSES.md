@@ -1,10 +1,12 @@
 # Writing a course
 
-A course is a folder of JSON files. No code changes are needed: drop the folder in, and it
-shows up in every client.
+A course is a folder of JSON files. No code changes are needed: drop the folder into
+`~/.tauko/courses/`, run `tauko restart`, and it shows up in every client. Courses shipped with
+tauko live in `content/courses/` in this repo; [examples/courses](../examples/courses) has a small
+one to copy from.
 
 ```
-content/courses/<course>/
+~/.tauko/courses/<course>/          (or content/courses/<course>/ in the repo)
   course.json
   decks/01-<unit>.json, 02-<unit>.json, …    one file per unit, in order
 ```
@@ -76,6 +78,10 @@ typo counts as *almost* and is graded Hard.
 ## Testing a course
 
 ```sh
-make test                                          # validates every shipped course
-tauko serve -courses content/courses -db /tmp/dev.db   # serve from disk; restart to reload
+tauko restart                                      # reload ~/.tauko/courses
+make test                                          # validates every course in content/ and examples/
+tauko serve -courses content/courses -db /tmp/dev.db   # serve the repo's courses from disk
 ```
+
+A course with an error (bad JSON, a duplicate ID) is skipped and the rest keep working.
+`tauko doctor` names the course and the problem.

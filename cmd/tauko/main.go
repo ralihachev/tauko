@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -36,6 +35,7 @@ usage:
   tauko stats                                  today's numbers
   tauko status                                 one line for the Claude Code status line
   tauko ensure                                 start the server in the background unless it runs
+  tauko restart                                restart the server (after adding or editing a course)
   tauko signal busy|idle                       called from Claude Code hooks
 
 env:
@@ -64,6 +64,12 @@ func main() {
 		err = withServer(stats)
 	case "ensure":
 		err = ensure()
+	case "restart":
+		stopServer()
+		time.Sleep(300 * time.Millisecond)
+		if err = ensure(); err == nil {
+			ok("server restarted on " + serverURL())
+		}
 	case "setup":
 		err = setup(args)
 	case "doctor":
@@ -93,17 +99,24 @@ func serve(args []string) error {
 	addr := fl.String("addr", "127.0.0.1:8787", "listen address (use 0.0.0.0:8787 + TAUKO_TOKEN for phone access)")
 	dbPath := fl.String("db", filepath.Join(home, ".tauko", "tauko.db"), "SQLite database path")
 	newPerDay := fl.Int("new-per-day", 20, "new cards per day")
-	coursesDir := fl.String("courses", "", "load courses from this directory instead of the embedded ones (for editing content)")
+	coursesDir := fl.String("courses", "", "load courses from this directory instead of the built-in ones (for editing content)")
+	userDir := fl.String("user-courses", filepath.Join(home, ".tauko", "courses"), "your own courses, loaded after the built-in ones (skipped if missing)")
 	fl.Parse(args)
 
-	var courseFS fs.FS = shipped.Courses
-	dir := "courses"
+	base := []content.Source{{FS: shipped.Courses, Root: "courses"}}
 	if *coursesDir != "" {
-		courseFS, dir = os.DirFS(*coursesDir), "."
+		base = []content.Source{{FS: os.DirFS(*coursesDir), Root: "."}}
 	}
-	lib, err := content.Load(courseFS, dir)
+	// A broken course of the user's is skipped (and reported), never fatal.
+	var warnings []string
+	lib, skipped, err := content.LoadTolerant(base, content.Source{FS: os.DirFS(*userDir), Root: "."})
 	if err != nil {
 		return fmt.Errorf("load courses: %w", err)
+	}
+	for dir, err := range skipped {
+		w := fmt.Sprintf("skipped course %s: %v", filepath.Join(*userDir, dir), err)
+		log.Printf("tauko: %s", w)
+		warnings = append(warnings, w)
 	}
 	if err := os.MkdirAll(filepath.Dir(*dbPath), 0o755); err != nil {
 		return err
@@ -115,7 +128,7 @@ func serve(args []string) error {
 	defer st.Close()
 
 	token := os.Getenv("TAUKO_TOKEN")
-	srv := server.New(lib, st, server.Config{NewPerDay: *newPerDay, Token: token})
+	srv := server.New(lib, st, server.Config{NewPerDay: *newPerDay, Token: token, Warnings: warnings})
 	if token == "" && !isLoopback(*addr) {
 		return errors.New("refusing to listen on a non-loopback address without TAUKO_TOKEN")
 	}

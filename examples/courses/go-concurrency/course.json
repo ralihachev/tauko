@@ -1,0 +1,8 @@
+{
+  "id": "go-concurrency",
+  "title": "Go concurrency",
+  "subject": "programming",
+  "description": "Channels, select, sync and context: the rules that bite in production, one gap at a time.",
+  "labels": { "qa": "Answer", "cloze": "Fill in" },
+  "focus_label": "Concept"
+}

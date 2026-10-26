@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -156,25 +157,39 @@ func (l *Library) Course(id string) (Course, bool) {
 	return *c, true
 }
 
-// Load reads every course directory under root in fsys, ordered by directory name.
-// Card and unit IDs must be unique across all courses: review history is keyed by them.
-func Load(fsys fs.FS, root string) (*Library, error) {
-	entries, err := fs.ReadDir(fsys, root)
-	if err != nil {
-		return nil, err
-	}
-	var dirs []string
-	for _, e := range entries {
-		if e.IsDir() {
-			dirs = append(dirs, e.Name())
-		}
-	}
-	sort.Strings(dirs)
+// Source is a directory of course folders.
+type Source struct {
+	FS   fs.FS
+	Root string
+	Only []string // if set, load only these course folders
+}
 
+// Load reads every course directory under root in fsys, ordered by directory name.
+func Load(fsys fs.FS, root string) (*Library, error) {
+	return LoadAll(Source{FS: fsys, Root: root})
+}
+
+// LoadAll reads the courses of every source, in order (built-in courses first, then the
+// user's). Card, unit and course IDs must be unique across all of them: review history
+// is keyed by them.
+func LoadAll(sources ...Source) (*Library, error) {
 	lib := &Library{byID: map[string]*Card{}, units: map[string]*Unit{}, courses: map[string]*Course{}}
-	for _, dir := range dirs {
-		if err := lib.loadCourse(fsys, path.Join(root, dir)); err != nil {
-			return nil, fmt.Errorf("course %s: %w", dir, err)
+	for _, src := range sources {
+		entries, err := fs.ReadDir(src.FS, src.Root)
+		if err != nil {
+			return nil, err
+		}
+		var dirs []string
+		for _, e := range entries {
+			if e.IsDir() && (src.Only == nil || slices.Contains(src.Only, e.Name())) {
+				dirs = append(dirs, e.Name())
+			}
+		}
+		sort.Strings(dirs)
+		for _, dir := range dirs {
+			if err := lib.loadCourse(src.FS, path.Join(src.Root, dir)); err != nil {
+				return nil, fmt.Errorf("course %s: %w", dir, err)
+			}
 		}
 	}
 	for i := range lib.Cards {
@@ -190,6 +205,9 @@ func Load(fsys fs.FS, root string) (*Library, error) {
 		lib.units[lib.Units[i].ID] = &lib.Units[i]
 	}
 	for i := range lib.Courses {
+		if _, dup := lib.courses[lib.Courses[i].ID]; dup {
+			return nil, fmt.Errorf("duplicate course id %q", lib.Courses[i].ID)
+		}
 		lib.courses[lib.Courses[i].ID] = &lib.Courses[i]
 	}
 	return lib, nil
@@ -206,9 +224,6 @@ func (l *Library) loadCourse(fsys fs.FS, dir string) error {
 	}
 	if cf.ID == "" || cf.Title == "" {
 		return fmt.Errorf("course.json needs id and title")
-	}
-	if _, dup := l.courses[cf.ID]; dup {
-		return fmt.Errorf("duplicate course id %q", cf.ID)
 	}
 	labels := map[string]string{}
 	for k, v := range defaultLabels {
@@ -315,4 +330,46 @@ func (l *Library) addUnit(course string, labels map[string]string, d deckFile) e
 	}
 	l.Units = append(l.Units, u)
 	return nil
+}
+
+// CourseDirs lists the course folders directly under root.
+func CourseDirs(fsys fs.FS, root string) ([]string, error) {
+	entries, err := fs.ReadDir(fsys, root)
+	if err != nil {
+		return nil, err
+	}
+	var dirs []string
+	for _, e := range entries {
+		if e.IsDir() {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	sort.Strings(dirs)
+	return dirs, nil
+}
+
+// LoadTolerant loads base, then adds each course folder of extra that loads cleanly
+// alongside what is already accepted. A broken course is skipped, not fatal: its error
+// is returned in skipped, keyed by folder name.
+func LoadTolerant(base []Source, extra Source) (*Library, map[string]error, error) {
+	lib, err := LoadAll(base...)
+	if err != nil {
+		return nil, nil, err
+	}
+	dirs, err := CourseDirs(extra.FS, extra.Root)
+	if err != nil {
+		return lib, nil, nil
+	}
+	skipped := map[string]error{}
+	var accepted []string
+	for _, dir := range dirs {
+		try := Source{FS: extra.FS, Root: extra.Root, Only: append(slices.Clone(accepted), dir)}
+		next, err := LoadAll(append(slices.Clone(base), try)...)
+		if err != nil {
+			skipped[dir] = err
+			continue
+		}
+		accepted, lib = append(accepted, dir), next
+	}
+	return lib, skipped, nil
 }

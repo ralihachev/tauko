@@ -408,9 +408,10 @@ type statsResp struct {
 		TotalReviews  int     `json:"total_reviews"`
 		Learned       int     `json:"learned"`
 	} `json:"stats"`
-	Due     int `json:"due"`
-	NewLeft int `json:"new_left"`
-	Cards   int `json:"cards"`
+	Due      int      `json:"due"`
+	NewLeft  int      `json:"new_left"`
+	Cards    int      `json:"cards"`
+	Warnings []string `json:"warnings"`
 }
 
 func stats() error {
