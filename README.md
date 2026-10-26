@@ -63,6 +63,7 @@ git clone https://github.com/ralihachev/tauko && cd tauko && make install && tau
 - **Recall, not reading.** You type the answer (or recall it and reveal). Typos and missing ä/ö count as "almost", not wrong.
 - **One card is 5 to 20 seconds.** Leave mid-card when Claude is done; nothing is lost.
 - **The schedule adapts.** Grade each card Again, Hard, Good or Easy, and FSRS spaces its next review accordingly: minutes for new cards, weeks for well-known ones.
+- **It never runs dry.** New cards come 20 a day, so your reviews stay manageable. Once you've done today's cards, tauko switches to **practice**: the cards you're closest to forgetting, all day long. Want new material instead? Press `n` for 10 more.
 
 ## What the cards look like
 
@@ -156,12 +157,15 @@ a pull request.
 |---|---|
 | type + `enter` | check your answer |
 | `enter` or `1`–`4` | grade it and move on |
+| `c` | switch course (or all courses) |
+| `n` | 10 more new cards today |
 | `m` | switch between typing and tap-to-reveal |
 | `Esc` / `ctrl+x tab` | back to the prompt / back to the card |
 | `/tauko` | open the pane by hand |
 
-In Claude Code's fullscreen mode (`/config`), the pane docks beside the chat; otherwise it sits above
-the prompt. The status line shows what's left: `📖 14 to do · 6 today · 🔥3`.
+`c`, `n` and `m` work once you've answered (while you type, every letter goes into your answer; Tab
+reaches the same buttons). In Claude Code's fullscreen mode (`/config`), the pane docks beside the chat;
+otherwise it sits above the prompt. The status line shows what's left: `📖 14 to do · 6 today · 🔥3`.
 
 <img src="docs/img/web.png" alt="tauko in the browser" width="280" align="right">
 
@@ -170,13 +174,15 @@ the prompt. The status line shows what's left: `📖 14 to do · 6 today · 🔥
 ```sh
 tauko                          # learn (type mode)
 tauko learn -mode tap          # recall, then reveal
-tauko learn -course fi-b1      # one course; -unit b1-03 for one unit
+tauko course                   # list courses; tauko course go-concurrency to switch
+tauko more                     # 10 more new cards today
+tauko learn -unit b1-03        # just one unit
 tauko quiz -unit b1-03         # 10 questions, scored
 tauko units                    # courses and progress
 tauko stats                    # today, streak, totals
 ```
 
-**In the browser:** http://127.0.0.1:8787 shows the same cards, plus "Claude is working" and "Claude is done".
+**In the browser:** http://127.0.0.1:8787 shows the same cards, a course picker, and "Claude is working" / "Claude is done".
 
 **On your phone:** let the server listen beyond your machine, with a token:
 
@@ -218,6 +224,8 @@ Run `tauko doctor`: it checks the binary, server and plugin, and says how to fix
 | `tauko setup` | install the Claude Code plugin and start the server (safe to re-run) |
 | `tauko doctor` | check everything and say how to fix it |
 | `tauko learn` / `quiz` / `units` / `stats` | study and track progress in the terminal |
+| `tauko course [id\|all]` | show courses, or switch the one every client studies |
+| `tauko more [n]` | n more new cards today (default 10) |
 | `tauko restart` | restart the server after adding or editing a course |
 | `tauko serve` | run the server in the foreground (`-addr`, `-db`, `-new-per-day`) |
 | `tauko uninstall` | remove the plugin and stop the server; `-purge` also deletes your progress |

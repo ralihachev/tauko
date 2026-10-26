@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,6 +57,9 @@ func (s *Server) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/check", s.handleCheck)
 	mux.HandleFunc("POST /api/review", s.handleReview)
 	mux.HandleFunc("GET /api/courses", s.handleCourses)
+	mux.HandleFunc("GET /api/settings", s.handleGetSettings)
+	mux.HandleFunc("POST /api/settings", s.handleSetSettings)
+	mux.HandleFunc("POST /api/more", s.handleMore)
 	mux.HandleFunc("GET /api/units", s.handleUnits)
 	mux.HandleFunc("GET /api/stats", s.handleStats)
 	mux.HandleFunc("POST /api/quiz", s.handleQuiz)
@@ -92,19 +96,36 @@ func (s *Server) auth(next http.Handler) http.Handler {
 type nextResponse struct {
 	Card        *content.Card `json:"card"`
 	IsNew       bool          `json:"is_new"`
+	Practice    bool          `json:"practice,omitempty"` // nothing due, no new left: reviewing ahead
 	Due         int           `json:"due"`
 	NewLeft     int           `json:"new_left"`
 	NextDue     *time.Time    `json:"next_due,omitempty"`
 	Focus       string        `json:"focus,omitempty"`
 	CourseTitle string        `json:"course_title,omitempty"`
 	Chars       []string      `json:"chars,omitempty"`
+	Scope       string        `json:"scope"` // the course being studied; "" = all courses
 }
 
-// handleNext picks the next card: due cards first, then new ones within the daily limit.
-// ?course= or ?unit= restrict the scope; ?exclude= skips a card (the one just answered).
+// practiceGap keeps a just-practiced card from coming straight back in practice mode.
+const practiceGap = 10 * time.Minute
+
+// handleNext picks the next card: due cards first, then new ones within today's limit,
+// then practice (the seen cards you're closest to forgetting), so there is always a card.
+// ?course= or ?unit= set the scope (default: the active course setting); ?exclude= skips
+// a card (the one just answered).
 func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	course, unit, exclude := q.Get("course"), q.Get("unit"), q.Get("exclude")
+	if !q.Has("course") && unit == "" {
+		active, err := s.store.Get(keyActiveCourse)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		if _, ok := s.lib.Course(active); ok {
+			course = active
+		}
+	}
 	now := s.now()
 	inScope := func(c content.Card) bool {
 		return (course == "" || c.Course == course) && (unit == "" || c.Unit == unit)
@@ -126,13 +147,8 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	seen, err := s.store.Seen()
-	if err != nil {
-		serverError(w, err)
-		return
-	}
 
-	resp := nextResponse{Due: len(due), NewLeft: newLeft}
+	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course}
 	for _, c := range due {
 		if c.ID != exclude {
 			resp.Card = &c
@@ -140,16 +156,24 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if resp.Card == nil && newLeft > 0 {
-		for _, c := range s.lib.Cards {
-			if !seen[c.ID] && inScope(c) && c.ID != exclude {
-				resp.Card, resp.IsNew = &c, true
-				break
-			}
+		c, err := s.nextNew(now, inScope, exclude)
+		if err != nil {
+			serverError(w, err)
+			return
 		}
+		resp.Card, resp.IsNew = c, c != nil
 	}
 	// Only the excluded card is due: better to repeat it than to show nothing.
 	if resp.Card == nil && len(due) > 0 {
 		resp.Card = &due[0]
+	}
+	if resp.Card == nil {
+		c, err := s.practiceCard(now, inScope, exclude)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		resp.Card, resp.Practice = c, c != nil
 	}
 	if resp.Card == nil {
 		if t, err := s.store.NextDue(); err == nil && !t.IsZero() {
@@ -166,12 +190,170 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+// nextNew returns the next unseen card in curriculum order. With several courses in
+// scope it rotates: the course that introduced the fewest new cards today goes next.
+func (s *Server) nextNew(now time.Time, inScope func(content.Card) bool, exclude string) (*content.Card, error) {
+	seen, err := s.store.Seen()
+	if err != nil {
+		return nil, err
+	}
+	introduced, err := s.store.NewIntroducedIDsSince(dayStart(now))
+	if err != nil {
+		return nil, err
+	}
+	today := map[string]int{}
+	for _, id := range introduced {
+		if c, ok := s.lib.Card(id); ok {
+			today[c.Course]++
+		}
+	}
+	var best *content.Card
+	firstOf := map[string]bool{}
+	for i := range s.lib.Cards {
+		c := &s.lib.Cards[i]
+		if seen[c.ID] || !inScope(*c) || c.ID == exclude || firstOf[c.Course] {
+			continue
+		}
+		firstOf[c.Course] = true // only each course's next card competes
+		if best == nil || today[c.Course] < today[best.Course] {
+			best = c
+		}
+	}
+	if best == nil {
+		return nil, nil
+	}
+	card := *best
+	return &card, nil
+}
+
+// practiceCard returns the seen card in scope with the lowest recall probability that
+// wasn't reviewed in the last practiceGap; failing that, the least recently reviewed.
+func (s *Server) practiceCard(now time.Time, inScope func(content.Card) bool, exclude string) (*content.Card, error) {
+	recalls, err := s.store.Recalls(now)
+	if err != nil {
+		return nil, err
+	}
+	var weakest, oldest *store.Recall
+	for i := range recalls {
+		rc := &recalls[i]
+		c, ok := s.lib.Card(rc.ID)
+		if !ok || !inScope(c) || rc.ID == exclude {
+			continue
+		}
+		if now.Sub(rc.LastReview) >= practiceGap && (weakest == nil || rc.R < weakest.R) {
+			weakest = rc
+		}
+		if oldest == nil || rc.LastReview.Before(oldest.LastReview) {
+			oldest = rc
+		}
+	}
+	pick := weakest
+	if pick == nil {
+		pick = oldest
+	}
+	if pick == nil {
+		return nil, nil
+	}
+	c, _ := s.lib.Card(pick.ID)
+	return &c, nil
+}
+
+const (
+	keyActiveCourse = "active_course"
+	keyExtraNew     = "extra_new:" // + YYYY-MM-DD
+)
+
 func (s *Server) newLeft(now time.Time) (int, error) {
 	n, err := s.store.NewIntroducedSince(dayStart(now))
 	if err != nil {
 		return 0, err
 	}
-	return max(0, s.cfg.NewPerDay-n), nil
+	extra, err := s.extraNew(now)
+	if err != nil {
+		return 0, err
+	}
+	return max(0, s.cfg.NewPerDay+extra-n), nil
+}
+
+func (s *Server) extraNew(now time.Time) (int, error) {
+	v, err := s.store.Get(keyExtraNew + now.Format("2006-01-02"))
+	if err != nil || v == "" {
+		return 0, err
+	}
+	n, _ := strconv.Atoi(v)
+	return n, nil
+}
+
+type settings struct {
+	ActiveCourse string `json:"active_course"` // "" = all courses
+	NewPerDay    int    `json:"new_per_day"`
+	ExtraToday   int    `json:"extra_new_today"`
+}
+
+func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	active, err := s.store.Get(keyActiveCourse)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if _, ok := s.lib.Course(active); !ok {
+		active = ""
+	}
+	extra, err := s.extraNew(s.now())
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, settings{ActiveCourse: active, NewPerDay: s.cfg.NewPerDay, ExtraToday: extra})
+}
+
+func (s *Server) handleSetSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ActiveCourse *string `json:"active_course"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if req.ActiveCourse != nil {
+		if _, ok := s.lib.Course(*req.ActiveCourse); *req.ActiveCourse != "" && !ok {
+			http.Error(w, "unknown course", http.StatusBadRequest)
+			return
+		}
+		if err := s.store.Set(keyActiveCourse, *req.ActiveCourse); err != nil {
+			serverError(w, err)
+			return
+		}
+	}
+	s.handleGetSettings(w, r)
+}
+
+// handleMore raises today's new-card limit by n (default 10).
+func (s *Server) handleMore(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		N int `json:"n"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if req.N <= 0 || req.N > 100 {
+		req.N = 10
+	}
+	now := s.now()
+	extra, err := s.extraNew(now)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if err := s.store.Set(keyExtraNew+now.Format("2006-01-02"), strconv.Itoa(extra+req.N)); err != nil {
+		serverError(w, err)
+		return
+	}
+	left, err := s.newLeft(now)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, map[string]int{"new_left": left})
 }
 
 type checkRequest struct {

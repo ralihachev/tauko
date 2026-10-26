@@ -27,6 +27,8 @@ export type View = {
   phase: Phase
   card: Card | null
   isNew: boolean
+  isPractice: boolean
+  scope: string
   focus: string
   courseTitle: string
   due: number
@@ -38,6 +40,15 @@ export type View = {
 
 export type Mode = 'type' | 'tap'
 
+export type CourseInfo = {
+  id: string
+  title: string
+  title_en?: string
+  total: number
+  seen: number
+  due: number
+}
+
 declare module 'claude-code' {
   interface PluginState {
     tauko: {
@@ -47,6 +58,8 @@ declare module 'claude-code' {
       lastId: string
       reviewed: number
       isInstalled: boolean
+      isPicking: boolean
+      courses: Shaped<CourseInfo[]>
     }
   }
 }

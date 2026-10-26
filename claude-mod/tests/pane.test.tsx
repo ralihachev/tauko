@@ -186,3 +186,49 @@ test('without the binary, the pane shows how to install it', async ($, on) => {
   expect((await ui.find({ type: 'Text', text: /install\.sh/ }))?.text).toContain('curl -fsSL')
   await ui.unmount()
 })
+
+test('practice cards are labeled when nothing is due', async ($, on) => {
+  on('http.fetch', () => json({ card: CARD, is_new: false, practice: true, scope: '', due: 0, new_left: 0 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /Practice: nothing due/ }))?.text).toContain('closest to forgetting')
+  expect((await ui.find({ type: 'Text', text: /PRACTICE/ }))?.text).toContain('PRACTICE')
+  expect((await ui.find({ type: 'Text', text: /All courses/ }))?.text).toContain('All courses')
+  await ui.unmount()
+})
+
+test('the course picker sets the active course and +10 new asks the server', async ($, on) => {
+  const posts: { url: string; body: unknown }[] = []
+  on('http.fetch', (_, e) => {
+    if (e.init?.method === 'POST') posts.push({ url: e.url, body: JSON.parse(e.init.body ?? '{}') })
+    if (e.url.endsWith('/api/courses')) {
+      return json([
+        { id: 'fi-b1', title: 'Suomi B1', total: 504, seen: 120, due: 3 },
+        { id: 'go-concurrency', title: 'Go concurrency', total: 20, seen: 0, due: 0 },
+      ])
+    }
+    if (e.url.includes('/api/next')) return json({ card: CARD, is_new: false, scope: 'go-concurrency', due: 0, new_left: 9, course_title: 'Go concurrency' })
+    return json({})
+  })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'courses' })
+  expect((await ui.find({ type: 'Text', text: /CHOOSE A COURSE/ }))?.text).toBe('CHOOSE A COURSE')
+  expect((await ui.find({ type: 'Text', text: /120\/504 seen/ }))?.text).toContain('3 due')
+
+  await ui.press({ key: 'course:go-concurrency' })
+  expect(posts.at(-1)).toEqual({ url: 'http://127.0.0.1:8787/api/settings', body: { active_course: 'go-concurrency' } })
+  expect(await ui.find({ type: 'Text', text: /CHOOSE A COURSE/ })).toBeUndefined()
+  expect((await ui.find({ type: 'Text', text: /Go concurrency ·/ }))?.text).toContain('9 new')
+
+  await ui.press({ key: 'more' })
+  expect(posts.at(-1)).toEqual({ url: 'http://127.0.0.1:8787/api/more', body: { n: 10 } })
+  await ui.unmount()
+})

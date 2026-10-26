@@ -53,7 +53,10 @@ func setup(args []string) error {
 	if out, err := claudeCLI("plugin", "install", "tauko@tauko", "--scope", "user"); err != nil {
 		return fmt.Errorf("installing the plugin: %w\n%s", err, out)
 	}
-	ok("plugin tauko@tauko installed for your user")
+	// Already installed? Bring it up to date, so re-running the installer upgrades both halves.
+	claudeCLI("plugin", "marketplace", "update", "tauko")
+	claudeCLI("plugin", "update", "tauko@tauko", "--scope", "user")
+	ok("plugin tauko@tauko installed and up to date (run /reload-plugins in open sessions)")
 
 	if path, removed, err := removeLegacyHooks(); err != nil {
 		warn("couldn't check " + path + " for old tauko hooks: " + err.Error())

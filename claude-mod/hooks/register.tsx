@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Color, EngineInterface, Register, RenderChildren } from 'claude-code'
 
-import type { Card, Check, Mode, View } from '../types'
+import type { Card, Check, CourseInfo, Mode, View } from '../types'
 
 // The tauko server (`tauko serve`) holds the cards and the schedule; this pane is
 // one more client of it, like the terminal and the PWA. The plugin also starts the
@@ -14,6 +14,8 @@ const EMPTY: View = {
   phase: 'loading',
   card: null,
   isNew: false,
+  isPractice: false,
+  scope: '',
   focus: '',
   courseTitle: '',
   due: 0,
@@ -24,16 +26,20 @@ const EMPTY: View = {
 }
 
 // Change the tag when View's fields change: it declines what an earlier version stored.
-const view = atom({ plugin: 'tauko', key: 'view' } as const, EMPTY, { shape: 'view-2' })
+const view = atom({ plugin: 'tauko', key: 'view' } as const, EMPTY, { shape: 'view-3' })
 const isBusy = atom({ plugin: 'tauko', key: 'isBusy' } as const, false)
 const mode = atom({ plugin: 'tauko', key: 'mode' } as const, 'type' as Mode)
 const lastId = atom({ plugin: 'tauko', key: 'lastId' } as const, '')
 const reviewed = atom({ plugin: 'tauko', key: 'reviewed' } as const, 0)
 const isInstalled = atom({ plugin: 'tauko', key: 'isInstalled' } as const, true)
+const isPicking = atom({ plugin: 'tauko', key: 'isPicking' } as const, false)
+const courses = atom({ plugin: 'tauko', key: 'courses' } as const, [] as CourseInfo[], { shape: 'courses-1' })
 
 type NextResponse = {
   card: Card | null
   is_new: boolean
+  practice?: boolean
+  scope?: string
   due: number
   new_left: number
   next_due?: string
@@ -68,6 +74,8 @@ async function loadNext($: EngineInterface): Promise<void> {
       phase: 'ask' as const,
       card,
       isNew: next.is_new,
+      isPractice: next.practice ?? false,
+      scope: next.scope ?? '',
       focus: next.focus ?? '',
       courseTitle: next.course_title ?? '',
       due: next.due,
@@ -175,6 +183,40 @@ async function refreshStatus($: EngineInterface): Promise<void> {
   }
 }
 
+// The course list: pick one to study, or all of them.
+async function openPicker($: EngineInterface): Promise<void> {
+  try {
+    const list = await api<CourseInfo[]>($, 'GET', '/api/courses')
+    await update($, courses, () => list)
+    await update($, isPicking, () => true)
+  } catch (err) {
+    await update($, view, () => ({ ...EMPTY, phase: 'offline' as const, message: String(err) }))
+  }
+}
+
+async function chooseCourse($: EngineInterface, id: string): Promise<void> {
+  try {
+    await api($, 'POST', '/api/settings', { active_course: id })
+  } catch (err) {
+    $.ui.log('tauko: ' + String(err))
+  }
+  await update($, isPicking, () => false)
+  await update($, lastId, () => '')
+  await loadNext($)
+  void refreshStatus($)
+}
+
+// moreNew raises today's new-card limit by 10 and moves on to a new card.
+async function moreNew($: EngineInterface): Promise<void> {
+  try {
+    await api($, 'POST', '/api/more', { n: 10 })
+  } catch (err) {
+    $.ui.log('tauko: ' + String(err))
+  }
+  await loadNext($)
+  void refreshStatus($)
+}
+
 function relTime(iso: string): string {
   const min = Math.round((Date.parse(iso) - Date.now()) / 60000)
   if (min < 1) return 'in a moment'
@@ -242,6 +284,8 @@ export const register: Register = on => {
     const m: Mode = Input ? await read($, mode) : 'tap'
     const count = await read($, reviewed)
     const installed = await read($, isInstalled)
+    const picking = await read($, isPicking)
+    const scopeName = v.scope ? v.courseTitle || v.scope : 'All courses'
     const rule = '─'.repeat(Math.max(8, Math.min(60, e.props.bodyColumns - 6)))
 
     // Keys reach the pane only while it holds the focus; Claude Code hands the focus back
@@ -260,9 +304,12 @@ export const register: Register = on => {
             </Text>
           )}
           <Text dimColor>
-            {v.due} due · {v.newLeft} new · {count} ✓
+            {scopeName} · {v.due} due · {v.newLeft} new · {count} ✓
           </Text>
         </Box>
+        {v.isPractice && v.phase !== 'offline' ? (
+          <Text color="suggestion">↻ Practice: nothing due, so you're reviewing what you're closest to forgetting</Text>
+        ) : null}
         {e.props.isFocused ? null : (
           <Text color="warning" bold>
             ⌨ {focusKey} to answer
@@ -277,12 +324,73 @@ export const register: Register = on => {
       </Box>
     )
 
+    // Course switch, more new cards, answer mode. Letter hotkeys only when no answer field
+    // is on screen, so typing an answer never triggers them; Tab reaches them either way.
+    const controls = (hot: boolean) => (
+      <Box marginTop={1} gap={2} flexWrap="wrap">
+        <Button key="courses" hotkey={hot ? 'c' : undefined} plain dimColor label={hot ? 'courses' : 'courses (tab)'} onPress={() => openPicker($)} />
+        <Button key="more" hotkey={hot ? 'n' : undefined} plain dimColor label="+10 new cards" onPress={() => moreNew($)} />
+        {Input ? (
+          <Button
+            key="mode"
+            hotkey={hot ? 'm' : undefined}
+            plain
+            dimColor
+            label={m === 'type' ? 'tap mode' : 'type mode'}
+            onPress={async () => {
+              await update($, mode, cur => (cur === 'type' ? 'tap' : 'type'))
+            }}
+          />
+        ) : null}
+      </Box>
+    )
+
     // A framed card: everything about one item lives inside it.
     const frame = (color: Color, children: RenderChildren) => (
       <Box flexDirection="column" borderStyle="round" borderColor={color} paddingX={2} paddingY={1}>
         {children}
       </Box>
     )
+
+    if (picking) {
+      const list = await read($, courses)
+      const options = [{ id: '', title: 'All courses', line: 'new cards rotate between courses' }].concat(
+        list.map(c => ({ id: c.id, title: c.title, line: `${c.seen}/${c.total} seen · ${c.due} due` })),
+      )
+      return (
+        <Box flexDirection="column">
+          {status}
+          {frame(
+            'suggestion',
+            <Box flexDirection="column" gap={1}>
+              <Text color="suggestion" bold>
+                CHOOSE A COURSE
+              </Text>
+              {options.slice(0, 10).map((o, i) => (
+                <Button
+                  key={'course:' + (o.id || 'all')}
+                  hotkey={String(i)}
+                  plain
+                  variant={o.id === v.scope ? 'primary' : undefined}
+                  autoFocus={o.id === v.scope ? true : undefined}
+                  onPress={() => chooseCourse($, o.id)}
+                >
+                  <Text bold={o.id === v.scope}>
+                    {o.id === v.scope ? '● ' : '  '}
+                    {o.title}
+                  </Text>
+                  <Text dimColor> {o.line}</Text>
+                </Button>
+              ))}
+            </Box>,
+          )}
+          <Box marginTop={1}>
+            <Button key="close-courses" hotkey="b" plain dimColor label="back" onPress={() => update($, isPicking, () => false)} />
+          </Box>
+          {footer('0–9 choose · b back')}
+        </Box>
+      )
+    }
 
     if (v.phase === 'offline') {
       return (
@@ -330,12 +438,11 @@ export const register: Register = on => {
               <Text color="success" bold size="title">
                 ✓ All done
               </Text>
-              <Text dimColor>Nothing due{v.message ? `. Next card ${v.message}` : ' right now'}.</Text>
+              <Text dimColor>Nothing to study in {scopeName} right now.</Text>
             </Box>,
           )}
-          <Box marginTop={1}>
-            <Button key="refresh" hotkey="r" label="r  Check again" onPress={() => loadNext($)} />
-          </Box>
+          {controls(true)}
+          {footer('n +10 new cards · c another course')}
         </Box>
       )
     }
@@ -351,6 +458,10 @@ export const register: Register = on => {
           {v.isNew ? (
             <Text color="warning" bold>
               {' '}NEW
+            </Text>
+          ) : v.isPractice ? (
+            <Text color="suggestion" bold>
+              {' '}PRACTICE
             </Text>
           ) : null}
         </Box>
@@ -395,21 +506,8 @@ export const register: Register = on => {
               <Button key="reveal" hotkey="r" variant="primary" autoFocus label="r  Show answer" onPress={() => reveal($)} />
             )}
           </Box>
-          {Input ? (
-            <Box marginTop={1}>
-              <Button
-                key="mode"
-                hotkey="m"
-                plain
-                dimColor
-                label={m === 'type' ? 'switch to tap mode' : 'switch to type mode'}
-                onPress={async () => {
-                  await update($, mode, cur => (cur === 'type' ? 'tap' : 'type'))
-                }}
-              />
-            </Box>
-          ) : null}
-          {footer(typing ? 'enter check · esc back to Claude' : 'enter reveal · esc back to Claude')}
+          {controls(!typing)}
+          {footer(typing ? 'enter check · esc back to Claude' : 'enter reveal · c courses · n new · esc back')}
         </Box>
       )
     }
@@ -482,7 +580,8 @@ export const register: Register = on => {
             </Button>
           ))}
         </Box>
-        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · esc back to Claude`)}
+        {controls(true)}
+        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · c courses · n new · esc back`)}
       </Box>
     )
   })

@@ -35,7 +35,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const state = {
   view: "learn",
   mode: store.get("mode", "tap"),
-  course: store.get("course", ""), // learn filter
+  course: "",        // active course, shared with every client through /api/settings
   unit: "",          // learn filter
   card: null,
   next: null,
@@ -74,11 +74,35 @@ async function pollSignal() {
   } catch {}
 }
 
+// ---------- course scope ----------
+
+// The scope bar above the card: which course you study, shared with every client.
+async function renderScope() {
+  const [courses, settings] = await Promise.all([api("GET", "/api/courses"), api("GET", "/api/settings")]);
+  state.course = settings.active_course;
+  const opts = [`<option value="">All courses</option>`]
+    .concat(courses.map((c) => `<option value="${esc(c.id)}">${esc(c.title)} · ${c.seen}/${c.total}</option>`));
+  const practice = state.next?.practice
+    ? `<span class="practice-note">Practice: nothing due, reviewing what you're closest to forgetting ·
+       <button class="link" data-action="more">+10 new cards</button></span>` : "";
+  $("#scope").innerHTML = `<label>Studying <select id="scope-select">${opts.join("")}</select></label>${practice}`;
+  $("#scope-select").value = state.course;
+  $("#scope-select").onchange = async (e) => { await setCourse(e.target.value); loadNext(); };
+}
+
+async function setCourse(id) {
+  await api("POST", "/api/settings", { active_course: id });
+  state.course = id;
+  state.unit = "";
+  state.last = "";
+  refreshCounts();
+}
+
 // ---------- learn ----------
 
 async function loadNext() {
+  // Without ?course= the server uses the active course, the one every client shares.
   const q = new URLSearchParams({ exclude: state.last });
-  if (state.course) q.set("course", state.course);
   if (state.unit) q.set("unit", state.unit);
   try {
     state.next = await api("GET", "/api/next?" + q);
@@ -87,6 +111,7 @@ async function loadNext() {
     return;
   }
   state.card = state.next.card;
+  renderScope().catch(() => {});
   state.phase = "ask";
   state.check = null;
   state.answer = "";
@@ -146,12 +171,14 @@ function renderLearn() {
   const el = $("#card");
   const { card, next } = state;
   if (!card) {
-    const when = next?.next_due ? `Next card ${relTime(next.next_due)}.` : "";
-    el.innerHTML = `<div class="empty"><h2>✓ All done!</h2><p>Nothing due right now. ${when}</p>
-      <p><button class="primary" data-goto="quiz">Take a quiz</button></p></div>`;
+    el.innerHTML = `<div class="empty"><h2>Nothing to study here yet</h2>
+      <p>Add new cards, or pick another course above.</p>
+      <p><button class="primary" data-action="more">+10 new cards</button></p></div>`;
     return;
   }
-  const extra = (next.is_new ? `<span class="tag new">new</span>` : "") + (next.focus ? `<span class="tag">${esc(next.focus)}</span>` : "");
+  const extra = (next.is_new ? `<span class="tag new">new</span>` : "")
+    + (next.practice ? `<span class="tag practice">practice</span>` : "")
+    + (next.focus ? `<span class="tag">${esc(next.focus)}</span>` : "");
   let body = cardHead(card, extra);
   if (state.phase === "ask") {
     body += `<div class="answer-area">${state.mode === "type"
@@ -336,12 +363,9 @@ document.addEventListener("click", async (e) => {
     else if (d.goto) show(d.goto);
     else if (d.grade) await grade(Number(d.grade));
     else if (d.char) insertChar(d.char);
-    else if (d.learnUnit !== undefined) { state.unit = d.learnUnit; state.course = ""; state.last = ""; show("learn"); }
-    else if (d.learnCourse !== undefined) {
-      state.course = d.learnCourse; state.unit = ""; state.last = "";
-      store.set("course", state.course);
-      show("learn");
-    }
+    else if (d.learnUnit !== undefined) { state.unit = d.learnUnit; state.last = ""; show("learn"); }
+    else if (d.learnCourse !== undefined) { await setCourse(d.learnCourse); show("learn"); }
+    else if (d.action === "more") { await api("POST", "/api/more", { n: 10 }); await loadNext(); refreshCounts(); }
     else if (d.quizUnit) { state.quizUnit = d.quizUnit; show("quiz"); }
     else if (d.action === "reveal") reveal();
     else if (d.action === "submit") await submitAnswer();

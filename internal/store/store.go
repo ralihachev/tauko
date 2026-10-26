@@ -139,6 +139,39 @@ func (s *Store) Seen() (map[string]bool, error) {
 	return seen, nil
 }
 
+// Recall is how well a seen card is remembered right now.
+type Recall struct {
+	ID         string
+	R          float64 // FSRS retrievability: estimated probability of recall now
+	LastReview time.Time
+}
+
+// Recalls returns every seen card with its current retrievability.
+func (s *Store) Recalls(now time.Time) ([]Recall, error) {
+	rows, err := s.db.Query(`SELECT card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review FROM card_state`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Recall
+	for rows.Next() {
+		var id string
+		var c fsrs.Card
+		var due, last int64
+		if err := rows.Scan(&id, &due, &c.Stability, &c.Difficulty, &c.ElapsedDays, &c.ScheduledDays, &c.Reps, &c.Lapses, &c.State, &last); err != nil {
+			return nil, err
+		}
+		c.Due, c.LastReview = time.Unix(due, 0), time.Unix(last, 0)
+		out = append(out, Recall{ID: id, R: s.fsrs.GetRetrievability(c, now), LastReview: c.LastReview})
+	}
+	return out, rows.Err()
+}
+
+// NewIntroducedIDsSince returns the cards whose first review happened at or after t.
+func (s *Store) NewIntroducedIDsSince(t time.Time) ([]string, error) {
+	return s.ids(`SELECT card_id FROM review_log GROUP BY card_id HAVING MIN(reviewed_at) >= ?`, t.Unix())
+}
+
 // NextDue returns when the next seen card becomes due (zero if none).
 func (s *Store) NextDue() (time.Time, error) {
 	var due sql.NullInt64

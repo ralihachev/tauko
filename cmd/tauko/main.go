@@ -32,6 +32,8 @@ usage:
   tauko learn [-mode tap|type] [-course id] [-unit id]   review due + new cards (default command)
   tauko quiz  [-course id] [-unit id] [-n 10]            typed self-quiz, scored
   tauko units                                  courses, units and progress
+  tauko course [id|all]                        show courses, or switch the one you study
+  tauko more [n]                               n more new cards today (default 10)
   tauko stats                                  today's numbers
   tauko status                                 one line for the Claude Code status line
   tauko ensure                                 start the server in the background unless it runs
@@ -60,6 +62,10 @@ func main() {
 		err = withServer(func() error { return quiz(args) })
 	case "units":
 		err = withServer(units)
+	case "course", "courses":
+		err = withServer(func() error { return course(args) })
+	case "more":
+		err = withServer(func() error { return more(args) })
 	case "stats":
 		err = withServer(stats)
 	case "ensure":

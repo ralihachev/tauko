@@ -127,12 +127,13 @@ func learn(args []string) error {
 	last, lastSignal := "", c.signal()
 	for n := 0; ; n++ {
 		var next struct {
-			Card    *card      `json:"card"`
-			IsNew   bool       `json:"is_new"`
-			Due     int        `json:"due"`
-			NewLeft int        `json:"new_left"`
-			NextDue *time.Time `json:"next_due"`
-			Focus   string     `json:"focus"`
+			Card     *card      `json:"card"`
+			IsNew    bool       `json:"is_new"`
+			Practice bool       `json:"practice"`
+			Due      int        `json:"due"`
+			NewLeft  int        `json:"new_left"`
+			NextDue  *time.Time `json:"next_due"`
+			Focus    string     `json:"focus"`
 		}
 		q := "/api/next?exclude=" + url.QueryEscape(last)
 		if *course != "" {
@@ -156,6 +157,8 @@ func learn(args []string) error {
 		tag := ""
 		if next.IsNew {
 			tag = yellow + " · new" + reset
+		} else if next.Practice {
+			tag = cyan + " · practice" + reset
 		}
 		fmt.Printf("\n%s%s%s%s%s  %s[%d due · %d new left]%s\n", dim, k.UnitTitle, focusSuffix(next.Focus), reset, tag, dim, next.Due, next.NewLeft, reset)
 		fmt.Printf("%s%s%s\n  %s%s%s\n", cyan, k.Instruction, reset, bold, k.Prompt, reset)
@@ -451,4 +454,70 @@ func signal(args []string) {
 	}
 	c := newClient(500 * time.Millisecond)
 	_ = c.do("POST", "/api/signal", map[string]string{"state": args[0]}, nil)
+}
+
+// course shows the courses, or switches the active one ("all" for every course).
+// Every client (pane, terminal, browser) studies the active course.
+func course(args []string) error {
+	c := newClient(5 * time.Second)
+	if len(args) == 1 {
+		id := args[0]
+		if id == "all" {
+			id = ""
+		}
+		if err := c.do("POST", "/api/settings", map[string]string{"active_course": id}, nil); err != nil {
+			return err
+		}
+		if id == "" {
+			id = "all courses"
+		}
+		ok("now studying " + id)
+		return nil
+	}
+	var settings struct {
+		ActiveCourse string `json:"active_course"`
+	}
+	var courses []struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+		Total int    `json:"total"`
+		Seen  int    `json:"seen"`
+		Due   int    `json:"due"`
+	}
+	if err := c.do("GET", "/api/settings", nil, &settings); err != nil {
+		return err
+	}
+	if err := c.do("GET", "/api/courses", nil, &courses); err != nil {
+		return err
+	}
+	mark := func(on bool) string {
+		if on {
+			return green + "●" + reset
+		}
+		return " "
+	}
+	fmt.Printf("%s %-16s %s\n", mark(settings.ActiveCourse == ""), "all", "every course, new cards rotate")
+	for _, co := range courses {
+		fmt.Printf("%s %-16s %s %s%d/%d seen · %d due%s\n", mark(settings.ActiveCourse == co.ID), co.ID, co.Title, dim, co.Seen, co.Total, co.Due, reset)
+	}
+	fmt.Printf("%sswitch with: tauko course <id|all>%s\n", dim, reset)
+	return nil
+}
+
+// more raises today's new-card limit.
+func more(args []string) error {
+	n := 10
+	if len(args) == 1 {
+		if v, err := strconv.Atoi(args[0]); err == nil {
+			n = v
+		}
+	}
+	var res struct {
+		NewLeft int `json:"new_left"`
+	}
+	if err := newClient(5*time.Second).do("POST", "/api/more", map[string]int{"n": n}, &res); err != nil {
+		return err
+	}
+	ok(fmt.Sprintf("%d new cards left today", res.NewLeft))
+	return nil
 }
