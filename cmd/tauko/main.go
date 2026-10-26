@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -130,7 +131,10 @@ func serve(args []string) error {
 	}
 	// A broken course of the user's is skipped (and reported), never fatal.
 	var warnings []string
-	lib, skipped, err := content.LoadTolerant(base, content.Source{FS: os.DirFS(*userDir), Root: "."})
+	load := func() (*content.Library, map[string]error, error) {
+		return content.LoadTolerant(base, content.Source{FS: os.DirFS(*userDir), Root: "."})
+	}
+	lib, skipped, err := load()
 	if err != nil {
 		return fmt.Errorf("load courses: %w", err)
 	}
@@ -152,6 +156,26 @@ func serve(args []string) error {
 	cfg := server.Config{NewPerDay: *newPerDay, Token: token, Warnings: warnings}
 	if llm.Available() {
 		cfg.Explain = llm.Claude("")
+		cfg.Gen = func(ctx context.Context, topic, level string, progress func(string)) (string, error) {
+			return runGen(ctx, generator(llm.Claude("")), genOptions{Topic: topic, Level: level, Units: 3, Cards: 12,
+				Lang: "English", Yes: true, Dir: *userDir, Progress: progress})
+		}
+	}
+	// The pane and the browser add courses through the server, which then reloads them.
+	cfg.Add = func(ctx context.Context, id string) error {
+		return addFromGallery(id, envOr("TAUKO_GALLERY_ARCHIVE", galleryArchive), *userDir, nil)
+	}
+	cfg.Gallery = func(ctx context.Context) ([]server.GalleryEntry, error) {
+		var entries []server.GalleryEntry
+		err := getJSON(envOr("TAUKO_GALLERY_INDEX", galleryIndex), &entries)
+		return entries, err
+	}
+	cfg.Reload = func() (*content.Library, error) {
+		lib, skipped, err := load()
+		for dir, err := range skipped {
+			log.Printf("tauko: skipped course %s: %v", filepath.Join(*userDir, dir), err)
+		}
+		return lib, err
 	}
 	srv := server.New(lib, st, cfg)
 	if token == "" && !isLoopback(*addr) {

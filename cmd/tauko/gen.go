@@ -153,10 +153,11 @@ func gen(args []string) error {
 	if !llm.Available() {
 		return errors.New("tauko gen uses Claude Code (claude -p); install it from https://claude.com/claude-code")
 	}
-	return runGen(context.Background(), generator(llm.Claude(*model)), genOptions{
+	_, err := runGen(context.Background(), generator(llm.Claude(*model)), genOptions{
 		Topic: topic, Level: *level, Units: *units, Cards: *cards, From: *from, ID: *id,
 		Lang: *lang, Yes: *yes, DryRun: *dry, Dir: *dir, Restart: restartIfDefault(*dir),
 	})
+	return err
 }
 
 // restartIfDefault reloads the server only when dir is the folder it serves.
@@ -182,18 +183,27 @@ type genOptions struct {
 	Yes, DryRun                  bool
 	Dir                          string       // where courses are installed
 	Restart                      func() error // reloads the server after installing
+	Progress                     func(string) // told each step, for the server's job status
 }
 
-func runGen(ctx context.Context, model generator, o genOptions) error {
+// runGen drafts, verifies, checks and installs a course, and returns its id ("" when
+// it wasn't installed).
+func runGen(ctx context.Context, model generator, o genOptions) (string, error) {
+	report := func(s string) {
+		step(s)
+		if o.Progress != nil {
+			o.Progress(s)
+		}
+	}
 	var files []string
 	source := ""
 	if o.From != "" {
 		abs, err := filepath.Abs(o.From)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if _, err := os.Stat(abs); err != nil {
-			return err
+			return "", err
 		}
 		files = []string{abs}
 		source = fmt.Sprintf("\nBase the course on the material in the file %s (read it first). Cover its most useful facts; don't invent facts it doesn't support.", abs)
@@ -205,18 +215,18 @@ func runGen(ctx context.Context, model generator, o genOptions) error {
 	prompt := fmt.Sprintf("Write a course.\nTopic: %s\nLearner level: %s\nUnits: %d, about %d cards each (a vocab item counts as 2 cards), ordered from basic to advanced.\nExplanations, notes and translations in: %s%s\n\n%s",
 		orDefault(o.Topic, "the material in the file"), level, o.Units, o.Cards, o.Lang, source, genFormat)
 
-	step("Drafting the course with Claude (about a minute)")
+	report("Drafting the course with Claude (about a minute)")
 	draft, err := askJSON(ctx, model, genSystem, prompt, files)
 	if err != nil {
-		return fmt.Errorf("draft: %w", err)
+		return "", fmt.Errorf("draft: %w", err)
 	}
 	ok(fmt.Sprintf("%d units, %d lessons, %d cards", len(draft.Units), countLessons(draft), countCards(draft)))
 
-	step("Verifying every answer with a second, independent pass")
+	report("Verifying every answer with a second, independent pass")
 	raw, _ := json.Marshal(draft)
 	checked, err := askJSON(ctx, model, verifySystem, verifyPrompt+string(raw), nil)
 	if err != nil {
-		return fmt.Errorf("verify: %w", err)
+		return "", fmt.Errorf("verify: %w", err)
 	}
 	if len(checked.Changes) == 0 {
 		ok("no problems found")
@@ -233,35 +243,36 @@ func runGen(ctx context.Context, model generator, o genOptions) error {
 	}
 	files2, err := courseFiles(courseID, checked)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	step("Checking the course")
+	report("Checking the course")
 	if err := validateCourse(o.Dir, courseID, files2); err != nil {
-		return err
+		return "", err
 	}
 	ok("valid")
 
 	preview(courseID, checked)
 	if o.DryRun {
-		return nil
+		return "", nil
 	}
 	if !o.Yes && !confirm(fmt.Sprintf("Install it to %s?", filepath.Join(o.Dir, courseID))) {
 		fmt.Println("Not installed.")
-		return nil
+		return "", nil
 	}
 	if err := writeCourse(filepath.Join(o.Dir, courseID), files2); err != nil {
-		return err
+		return "", err
 	}
 	ok("installed " + filepath.Join(o.Dir, courseID))
 	if o.Restart != nil {
 		if err := o.Restart(); err != nil {
-			return err
+			return courseID, err
 		}
 		ok("server restarted")
 	}
 	fmt.Printf("\nStudy it: press %sc%s in the tauko pane, or run %stauko course %s%s\n", bold, reset, bold, courseID, reset)
-	return nil
+	fmt.Printf("%s☕ tauko is free. If it helps you: https://ko-fi.com/romanslab%s\n", dim, reset)
+	return courseID, nil
 }
 
 // askJSON runs the model and parses its reply as a genCourse, asking once more if the

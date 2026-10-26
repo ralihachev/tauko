@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -332,5 +333,83 @@ func TestRetireAndBringBack(t *testing.T) {
 	call(t, h, "GET", "/api/next?course=go", "", &next)
 	if next.Card == nil || next.Card.ID != "go-q1" || next.Practice {
 		t.Errorf("unretired card should be due again, got %+v", next)
+	}
+}
+
+func TestGenerateACourseFromAClient(t *testing.T) {
+	h := newTestServer(t)
+	release := make(chan struct{})
+	testServer.cfg.Gen = func(ctx context.Context, topic, level string, progress func(string)) (string, error) {
+		progress("Drafting")
+		<-release
+		return "ph", nil
+	}
+	testServer.cfg.Reload = func() (*content.Library, error) {
+		return content.Load(fstest.MapFS{
+			"c/ph/course.json":   {Data: []byte(`{"id": "ph", "title": "Photography"}`)},
+			"c/ph/decks/01.json": {Data: []byte(`{"id": "ph-01", "title": "Exposure", "drills": [{"id": "ph-q1", "type": "qa", "prompt": "Depth of field?", "answers": ["aperture"]}]}`)},
+		}, "c")
+	}
+
+	var job Job
+	call(t, h, "POST", "/api/courses/gen", `{"topic": "Photography"}`, &job)
+	if job.State != "running" || job.Label != "Photography" {
+		t.Fatalf("job = %+v", job)
+	}
+	// One job at a time.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/courses/gen", strings.NewReader(`{"topic": "Go"}`)))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("second job: %d, want 409", rec.Code)
+	}
+
+	close(release)
+	for deadline := time.Now().Add(5 * time.Second); job.State == "running"; {
+		if time.Now().After(deadline) {
+			t.Fatal("job still running")
+		}
+		time.Sleep(5 * time.Millisecond)
+		call(t, h, "GET", "/api/job", "", &job)
+	}
+	if job.State != "done" || job.CourseID != "ph" || job.CourseTitle != "Photography" {
+		t.Fatalf("job = %+v", job)
+	}
+	// The new course is loaded and studied next.
+	var next nextResponse
+	call(t, h, "GET", "/api/next", "", &next)
+	if next.Scope != "ph" || next.Card == nil || next.Card.ID != "ph-q1" {
+		t.Fatalf("next = %+v", next)
+	}
+}
+
+func TestFailedJobAndGallery(t *testing.T) {
+	h := newTestServer(t)
+	testServer.cfg.Add = func(ctx context.Context, id string) error { return errors.New("no course " + id) }
+	testServer.cfg.Reload = func() (*content.Library, error) { t.Fatal("reloaded after a failure"); return nil, nil }
+	testServer.cfg.Gallery = func(ctx context.Context) ([]GalleryEntry, error) {
+		return []GalleryEntry{{ID: "go", Title: "Go"}, {ID: "spanish", Title: "Español"}}, nil
+	}
+
+	var gallery []GalleryEntry
+	call(t, h, "GET", "/api/gallery", "", &gallery)
+	if !gallery[0].Installed || gallery[1].Installed {
+		t.Fatalf("gallery = %+v", gallery)
+	}
+
+	var job Job
+	call(t, h, "POST", "/api/courses/add", `{"id": "nope"}`, &job)
+	for job.State == "running" {
+		time.Sleep(5 * time.Millisecond)
+		call(t, h, "GET", "/api/job", "", &job)
+	}
+	if job.State != "failed" || job.Error != "no course nope" {
+		t.Fatalf("job = %+v", job)
+	}
+
+	// Without Claude Code, generating says why.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/courses/gen", strings.NewReader(`{"topic": "x"}`)))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("gen without Claude: %d", rec.Code)
 	}
 }

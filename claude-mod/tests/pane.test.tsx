@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 const PANE = {
   plugin: 'tauko',
@@ -233,15 +233,96 @@ test('the course picker sets the active course and +10 new asks the server', asy
   await ui.unmount()
 })
 
-test('with no courses installed, the pane says how to get one', async ($, on) => {
-  on('http.fetch', () => json({ card: null, is_new: false, due: 0, new_left: 20, scope: '', no_courses: true }))
+const GALLERY = [
+  { id: 'go-concurrency', title: 'Go concurrency', description: 'channels, select, sync', cards: 20, installed: false },
+  { id: 'spanish-a2-travel', title: 'Español de viaje A2', description: 'tickets and hotels', cards: 20, installed: false },
+]
+
+test('with no courses installed, the pane makes one with Claude and opens it when ready', async ($, on) => {
+  const clock = mock.clock(on)
+  const posts: { url: string; body: unknown }[] = []
+  const toasts: string[] = []
+  let polls = 0
+  let ready = false
+  on('http.fetch', (_, e) => {
+    if (e.init?.method === 'POST') posts.push({ url: e.url, body: JSON.parse(e.init.body ?? '{}') })
+    if (e.url.endsWith('/api/gallery')) return json(GALLERY)
+    if (e.url.endsWith('/api/courses/gen')) return json({ kind: 'gen', label: 'Photography', state: 'running', step: 'Starting' })
+    if (e.url.endsWith('/api/job')) {
+      polls++
+      return json(ready
+        ? { kind: 'gen', label: 'Photography', state: 'done', course_id: 'photography', course_title: 'Photography basics' }
+        : { kind: 'gen', label: 'Photography', state: 'running', step: 'Verifying every answer' })
+    }
+    if (e.url.includes('/api/next')) {
+      return json(ready
+        ? { card: CARD, is_new: true, scope: 'photography', due: 0, new_left: 20, course_title: 'Photography basics' }
+        : { card: null, is_new: false, due: 0, new_left: 20, scope: '', no_courses: true })
+    }
+    return json({ due: 0, new_left: 20, stats: { reviews_today: 0, streak_days: 0 } })
+  })
   on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', (_, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
   on('prompt.submit', (_, e) => ({ text: e.text }))
   await $.prompt.submit({ text: 'x' })
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ type: 'Text', text: /NO COURSES YET/ }))?.text).toBe('NO COURSES YET')
-  expect((await ui.find({ type: 'Text', text: /tauko gen/ }))?.text).toContain('Kubernetes networking')
+  expect((await ui.find({ type: 'Text', text: /Español de viaje/ }))?.text).toContain('Español de viaje A2')
+
+  await ui.input({ key: 'topic', text: 'Photography', kind: 'submit' })
+  expect(posts.at(-1)).toEqual({ url: 'http://127.0.0.1:8787/api/courses/gen', body: { topic: 'Photography' } })
+  expect((await ui.find({ type: 'Text', text: /on its way/ }))?.text).toContain('opens here')
+
+  await clock.advance(2000)
+  expect((await ui.find({ type: 'Text', text: /Making “Photography”/ }))?.text).toContain('Verifying every answer')
+
+  ready = true
+  await clock.advance(2000)
+  expect(toasts).toEqual(["✓ Photography basics is ready: it's in the tauko pane"])
+  expect((await ui.find({ type: 'Text', text: /Pekka/ }))?.text).toBe('Pekka on ___ kuin veljensä.')
+
+  // Done: no more polling.
+  const after = polls
+  await clock.advance(10000)
+  expect(polls).toBe(after)
+  await ui.unmount()
+})
+
+test('the course picker installs a gallery course; a failure says why', async ($, on) => {
+  mock.clock(on)
+  const posts: { url: string; body: unknown }[] = []
+  on('http.fetch', (_, e) => {
+    if (e.init?.method === 'POST') posts.push({ url: e.url, body: JSON.parse(e.init.body ?? '{}') })
+    if (e.url.endsWith('/api/courses')) return json([{ id: 'fi-b1', title: 'Suomi B1', total: 504, seen: 120, due: 3 }])
+    if (e.url.endsWith('/api/gallery')) return json(GALLERY)
+    if (e.url.endsWith('/api/courses/add')) {
+      return { value: { status: 409, ok: false, headers: {}, text: 'a course is already being added; wait for it to finish\n' } }
+    }
+    return json({ card: CARD, is_new: false, scope: 'fi-b1', due: 3, new_left: 0, course_title: 'Suomi B1' })
+  })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'courses' })
+  await ui.press({ key: 'add-course' })
+  expect((await ui.find({ type: 'Text', text: /ADD A COURSE/ }))?.text).toBe('ADD A COURSE')
+
+  await ui.press({ key: 'gallery:go-concurrency' })
+  expect(posts.at(-1)).toEqual({ url: 'http://127.0.0.1:8787/api/courses/add', body: { id: 'go-concurrency' } })
+  expect((await ui.find({ type: 'Text', text: /Couldn't add/ }))?.text).toBe("✗ Couldn't add “go-concurrency”: a course is already being added; wait for it to finish")
+
+  await ui.press({ key: 'dismiss-job' })
+  expect(await ui.find({ type: 'Text', text: /Couldn't add/ })).toBeUndefined()
+  await ui.press({ key: 'close-add' })
+  expect((await ui.find({ type: 'Text', text: /Pekka/ }))?.text).toBe('Pekka on ___ kuin veljensä.')
   await ui.unmount()
 })
 

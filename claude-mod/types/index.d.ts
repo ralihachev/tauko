@@ -55,6 +55,28 @@ export type CourseInfo = {
   due: number
 }
 
+export type GalleryEntry = {
+  id: string
+  title: string
+  description: string
+  cards: number
+  installed: boolean
+}
+
+// The course gallery as the add screen shows it.
+export type Gallery = { entries: GalleryEntry[]; isLoading: boolean; error: string }
+
+// A course being made or installed by the server (GET /api/job).
+export type Job = {
+  kind: 'gen' | 'add'
+  label: string
+  state: 'running' | 'done' | 'failed'
+  step?: string
+  error?: string
+  course_id?: string
+  course_title?: string
+}
+
 declare module 'claude-code' {
   interface PluginState {
     tauko: {
@@ -67,6 +89,9 @@ declare module 'claude-code' {
       isPicking: boolean
       courses: Shaped<CourseInfo[]>
       lastRetired: Shaped<RetiredRef | null>
+      isAdding: boolean
+      gallery: Shaped<Gallery>
+      job: Shaped<Job | null>
     }
   }
 }

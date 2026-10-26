@@ -37,7 +37,7 @@ func TestRunGenInstallsAVerifiedCourse(t *testing.T) {
 		return fakeCourse, nil
 	}
 	restarted := false
-	err := runGen(context.Background(), model, genOptions{Topic: "k8s networking", Units: 1, Cards: 2, Yes: true, Dir: dir,
+	_, err := runGen(context.Background(), model, genOptions{Topic: "k8s networking", Units: 1, Cards: 2, Yes: true, Dir: dir,
 		Restart: func() error { restarted = true; return nil }}) // never the real server
 	if err != nil {
 		t.Fatal(err)

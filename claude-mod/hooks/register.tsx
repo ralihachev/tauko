@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
-import type { Color, EngineInterface, Register, RenderChildren } from 'claude-code'
+import type { Color, EngineInterface, Register, RenderChildren, Timer } from 'claude-code'
 
-import type { Card, Check, CourseInfo, Mode, RetiredRef, View } from '../types'
+import type { Card, Check, CourseInfo, Gallery, Job, Mode, RetiredRef, View } from '../types'
 
 // The tauko server (`tauko serve`) holds the cards and the schedule; this pane is
 // one more client of it, like the terminal and the PWA. The plugin also starts the
@@ -39,6 +39,10 @@ const isPicking = atom({ plugin: 'tauko', key: 'isPicking' } as const, false)
 const courses = atom({ plugin: 'tauko', key: 'courses' } as const, [] as CourseInfo[], { shape: 'courses-1' })
 // The card just marked "I know this", so the next card can offer to undo it.
 const lastRetired = atom({ plugin: 'tauko', key: 'lastRetired' } as const, null as RetiredRef | null, { shape: 'retired-1' })
+// The add-a-course screen: make one with Claude, or install one from the gallery.
+const isAdding = atom({ plugin: 'tauko', key: 'isAdding' } as const, false)
+const gallery = atom({ plugin: 'tauko', key: 'gallery' } as const, { entries: [], isLoading: false, error: '' } as Gallery, { shape: 'gallery-1' })
+const job = atom({ plugin: 'tauko', key: 'job' } as const, null as Job | null, { shape: 'job-1' })
 
 type NextResponse = {
   card: Card | null
@@ -71,6 +75,9 @@ async function loadNext($: EngineInterface): Promise<void> {
     const next = await api<NextResponse>($, 'GET', '/api/next?exclude=' + encodeURIComponent(exclude))
     if (!next.card) {
       const when = next.next_due ? relTime(next.next_due) : ''
+      if (next.no_courses) {
+        void loadGallery($)
+      }
       await update($, view, () => ({ ...EMPTY, phase: 'empty' as const, message: when, noCourses: next.no_courses ?? false }))
       return
     }
@@ -296,6 +303,77 @@ async function moreNew($: EngineInterface): Promise<void> {
   void refreshStatus($)
 }
 
+// The server's error text without the status code api() puts in front of it.
+function reason(err: unknown): string {
+  return String(err).replace(/^Error: \d{3} /, '')
+}
+
+async function openAdd($: EngineInterface): Promise<void> {
+  await update($, isPicking, () => false)
+  await update($, isAdding, () => true)
+  await loadGallery($)
+}
+
+async function loadGallery($: EngineInterface): Promise<void> {
+  await update($, gallery, cur => ({ ...cur, isLoading: true, error: '' }))
+  try {
+    const entries = await api<Gallery['entries']>($, 'GET', '/api/gallery')
+    await update($, gallery, () => ({ entries, isLoading: false, error: '' }))
+  } catch (err) {
+    await update($, gallery, cur => ({ ...cur, isLoading: false, error: reason(err) }))
+  }
+}
+
+// startJob asks the server to make or install a course; it works in the background
+// (a generated course takes about a minute) and the pane polls until it's done.
+async function startJob($: EngineInterface, path: string, body: unknown, failed: Job): Promise<void> {
+  try {
+    const started = await api<Job>($, 'POST', path, body)
+    await update($, job, () => started)
+    watchJob($)
+  } catch (err) {
+    await update($, job, () => ({ ...failed, state: 'failed' as const, error: reason(err) }))
+  }
+}
+
+const makeCourse = ($: EngineInterface, topic: string) =>
+  topic.trim() ? startJob($, '/api/courses/gen', { topic: topic.trim() }, { kind: 'gen', label: topic.trim(), state: 'failed' }) : Promise.resolve()
+
+const installCourse = ($: EngineInterface, id: string) => startJob($, '/api/courses/add', { id }, { kind: 'add', label: id, state: 'failed' })
+
+// One poll at a time; a reload starts over and session.start picks a running job up again.
+let poll: Timer | undefined
+
+function watchJob($: EngineInterface): void {
+  poll?.cancel()
+  poll = $.clock.every(2000, () => {
+    void checkJob($).catch(err => $.ui.log('tauko: ' + String(err)))
+  })
+}
+
+async function checkJob($: EngineInterface): Promise<void> {
+  let cur: Job | null
+  try {
+    cur = await api<Job | null>($, 'GET', '/api/job')
+  } catch {
+    return // The server restarting; ask again next tick.
+  }
+  if (!cur || cur.state !== 'running') {
+    poll?.cancel()
+    poll = undefined
+  }
+  await update($, job, () => cur)
+  if (cur?.state === 'done') {
+    $.ui.toast(`✓ ${cur.course_title || cur.course_id} is ready: it's in the tauko pane`, { timeoutMs: 8000 })
+    await update($, isAdding, () => false)
+    await update($, lastId, () => '')
+    await loadNext($)
+    void refreshStatus($)
+  } else if (cur?.state === 'failed') {
+    $.ui.toast(`tauko: couldn't add “${cur.label}”`)
+  }
+}
+
 function relTime(iso: string): string {
   const min = Math.round((Date.parse(iso) - Date.now()) / 60000)
   if (min < 1) return 'in a moment'
@@ -323,6 +401,12 @@ export const register: Register = on => {
       const found = await ensureServer($)
       await update($, isInstalled, () => found)
       await refreshStatus($)
+      // A course still being made (from before a reload or another session): follow it.
+      const running = await api<Job | null>($, 'GET', '/api/job').catch(() => null)
+      if (running?.state === 'running') {
+        await update($, job, () => running)
+        watchJob($)
+      }
     })().catch(err => $.ui.log('tauko: start-up failed: ' + String(err)))
     return next(e)
   })
@@ -365,6 +449,8 @@ export const register: Register = on => {
     const installed = await read($, isInstalled)
     const picking = await read($, isPicking)
     const retiredRef = await read($, lastRetired)
+    const adding = await read($, isAdding)
+    const j = await read($, job)
     const typingNow = v.phase === 'ask' && v.card?.kind !== 'lesson' && m === 'type' && Boolean(Input)
     const scopeName = v.scope ? v.courseTitle || v.scope : 'All courses'
     const rule = '─'.repeat(Math.max(8, Math.min(60, e.props.bodyColumns - 6)))
@@ -395,6 +481,18 @@ export const register: Register = on => {
           <Box gap={1}>
             <Text dimColor>✓ Retired “{retiredRef.prompt}”</Text>
             <Button key="undo" hotkey={typingNow ? undefined : 'u'} plain dimColor label="undo" onPress={() => undoRetire($)} />
+          </Box>
+        ) : null}
+        {j?.state === 'running' ? (
+          <Text color="suggestion">
+            ⏳ {j.kind === 'gen' ? `Making “${j.label}”` : `Installing ${j.label}`} · {j.step || 'working'}…
+          </Text>
+        ) : j?.state === 'failed' ? (
+          <Box gap={1}>
+            <Text color="error">
+              ✗ Couldn't add “{j.label}”: {j.error}
+            </Text>
+            <Button key="dismiss-job" hotkey={typingNow ? undefined : 'x'} plain dimColor label="dismiss" onPress={() => update($, job, () => null)} />
           </Box>
         ) : null}
         {e.props.isFocused ? null : (
@@ -471,10 +569,11 @@ export const register: Register = on => {
               ))}
             </Box>,
           )}
-          <Box marginTop={1}>
+          <Box marginTop={1} gap={2}>
+            <Button key="add-course" hotkey="a" plain label="+ add a course" onPress={() => openAdd($)} />
             <Button key="close-courses" hotkey="b" plain dimColor label="back" onPress={() => update($, isPicking, () => false)} />
           </Box>
-          {footer('0–9 choose · b back')}
+          {footer('0–9 choose · a add a course · b back')}
         </Box>
       )
     }
@@ -515,7 +614,12 @@ export const register: Register = on => {
       )
     }
 
-    if (v.phase === 'empty' && v.noCourses) {
+    // Add a course: make one about anything with Claude, or install one from the gallery.
+    // It is also what a new learner sees before any course is installed.
+    const noCourses = v.phase === 'empty' && v.noCourses
+    if (adding || noCourses) {
+      const gal = await read($, gallery)
+      const busyJob = j?.state === 'running'
       return (
         <Box flexDirection="column">
           {status}
@@ -523,19 +627,63 @@ export const register: Register = on => {
             'suggestion',
             <Box flexDirection="column" gap={1}>
               <Text color="suggestion" bold>
-                NO COURSES YET
+                {noCourses ? 'NO COURSES YET' : 'ADD A COURSE'}
               </Text>
-              <Text>Make one about anything, in a terminal:</Text>
-              <Text color="success">  tauko gen "Kubernetes networking"</Text>
-              <Text>or install one from the gallery:</Text>
-              <Text color="success">  tauko add            (list)</Text>
-              <Text color="success">  tauko add go-concurrency</Text>
+              {busyJob ? (
+                <Text>Your course is on its way (about a minute for a new one). Keep working: it opens here when it's ready.</Text>
+              ) : Input ? (
+                <Box flexDirection="column">
+                  <Text>Make one about anything, with Claude:</Text>
+                  <Input
+                    key="topic"
+                    label="›"
+                    placeholder="e.g. Spanish for travellers, the Cold War"
+                    submitLabel="make it"
+                    autoFocus
+                    onSubmit={(value: string) => makeCourse($, value)}
+                  />
+                </Box>
+              ) : (
+                <Box flexDirection="column">
+                  <Text>Make one about anything, in a terminal:</Text>
+                  <Text color="success">  tauko gen "Kubernetes networking"</Text>
+                </Box>
+              )}
+              <Box flexDirection="column">
+                <Text>Or install one from the gallery:</Text>
+                {gal.isLoading ? (
+                  <Text dimColor>Loading the gallery…</Text>
+                ) : gal.error ? (
+                  <Text dimColor>
+                    {gal.error}. In a terminal: tauko add
+                  </Text>
+                ) : (
+                  gal.entries.map(g => (
+                    <Button
+                      key={'gallery:' + g.id}
+                      plain
+                      onPress={() => (g.installed ? chooseCourse($, g.id).then(() => update($, isAdding, () => false)) : busyJob ? undefined : installCourse($, g.id))}
+                    >
+                      <Text bold>
+                        {g.installed ? '✓ ' : '+ '}
+                        {g.title}
+                      </Text>
+                      <Text dimColor>
+                        {' '}
+                        {g.installed ? 'installed, study it' : `${g.cards} cards · ${g.description}`}
+                      </Text>
+                    </Button>
+                  ))
+                )}
+              </Box>
             </Box>,
           )}
-          <Box marginTop={1}>
-            <Button key="refresh" hotkey="r" plain dimColor label="check again" onPress={() => loadNext($)} />
-          </Box>
-          {footer('r check again · esc back to Claude')}
+          {noCourses ? null : (
+            <Box marginTop={1}>
+              <Button key="close-add" plain dimColor label="back" onPress={() => update($, isAdding, () => false)} />
+            </Box>
+          )}
+          {footer(Input && !busyJob ? 'enter make it · tab the gallery · esc back to Claude' : 'tab the gallery · esc back to Claude')}
         </Box>
       )
     }
@@ -555,6 +703,7 @@ export const register: Register = on => {
           )}
           {controls(true)}
           {footer('n learn 10 more today · c another course')}
+          {footer('☕ tauko is free. If it helps you: ko-fi.com/romanslab')}
         </Box>
       )
     }

@@ -27,6 +27,12 @@ type Config struct {
 	Token     string // optional bearer token; empty disables auth
 	Warnings  []string
 	Explain   llm.Func // for "Explain this"; nil when Claude Code isn't installed
+
+	// Adding courses from a client. Each is nil when unavailable.
+	Gen     func(ctx context.Context, topic, level string, progress func(string)) (courseID string, err error)
+	Add     func(ctx context.Context, id string) error // install a gallery course
+	Gallery func(ctx context.Context) ([]GalleryEntry, error)
+	Reload  func() (*content.Library, error) // reloads courses after one is added
 }
 
 // Server handles API requests.
@@ -38,6 +44,16 @@ type Server struct {
 
 	mu     sync.Mutex
 	signal Signal
+	job    *Job
+
+	libMu sync.RWMutex
+}
+
+// library is the loaded courses; adding a course swaps it.
+func (s *Server) library() *content.Library {
+	s.libMu.RLock()
+	defer s.libMu.RUnlock()
+	return s.lib
 }
 
 // Signal is the Claude Code busy/idle state reported by hooks.
@@ -72,6 +88,10 @@ func (s *Server) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/stats", s.handleStats)
 	mux.HandleFunc("POST /api/quiz", s.handleQuiz)
 	mux.HandleFunc("POST /api/quiz/result", s.handleQuizResult)
+	mux.HandleFunc("GET /api/gallery", s.handleGallery)
+	mux.HandleFunc("POST /api/courses/add", s.handleAddCourse)
+	mux.HandleFunc("POST /api/courses/gen", s.handleGenCourse)
+	mux.HandleFunc("GET /api/job", s.handleGetJob)
 	mux.HandleFunc("GET /api/signal", s.handleGetSignal)
 	mux.HandleFunc("POST /api/signal", s.handleSetSignal)
 	mux.Handle("GET /", http.FileServerFS(static))
@@ -131,7 +151,7 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 			serverError(w, err)
 			return
 		}
-		if _, ok := s.lib.Course(active); ok {
+		if _, ok := s.library().Course(active); ok {
 			course = active
 		}
 	}
@@ -147,7 +167,7 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 	}
 	var due []content.Card
 	for _, id := range dueIDs {
-		if c, ok := s.lib.Card(id); ok && inScope(c) {
+		if c, ok := s.library().Card(id); ok && inScope(c) {
 			due = append(due, c)
 		}
 	}
@@ -157,7 +177,7 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course, NoCourses: len(s.lib.Courses) == 0}
+	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course, NoCourses: len(s.library().Courses) == 0}
 	for _, c := range due {
 		if c.ID != exclude {
 			resp.Card = &c
@@ -189,10 +209,10 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 			resp.NextDue = &t
 		}
 	} else {
-		if u, ok := s.lib.Unit(resp.Card.Unit); ok {
+		if u, ok := s.library().Unit(resp.Card.Unit); ok {
 			resp.Focus = u.Focus
 		}
-		if c, ok := s.lib.Course(resp.Card.Course); ok {
+		if c, ok := s.library().Course(resp.Card.Course); ok {
 			resp.CourseTitle, resp.Chars = c.Title, c.Chars
 		}
 	}
@@ -216,14 +236,14 @@ func (s *Server) nextNew(now time.Time, inScope func(content.Card) bool, exclude
 	}
 	today := map[string]int{}
 	for _, id := range introduced {
-		if c, ok := s.lib.Card(id); ok {
+		if c, ok := s.library().Card(id); ok {
 			today[c.Course]++
 		}
 	}
 	var best *content.Card
 	firstOf := map[string]bool{}
-	for i := range s.lib.Cards {
-		c := &s.lib.Cards[i]
+	for i := range s.library().Cards {
+		c := &s.library().Cards[i]
 		if seen[c.ID] || retired[c.ID] || !inScope(*c) || c.ID == exclude || firstOf[c.Course] {
 			continue
 		}
@@ -249,7 +269,7 @@ func (s *Server) practiceCard(now time.Time, inScope func(content.Card) bool, ex
 	var weakest, oldest *store.Recall
 	for i := range recalls {
 		rc := &recalls[i]
-		c, ok := s.lib.Card(rc.ID)
+		c, ok := s.library().Card(rc.ID)
 		if !ok || !inScope(c) || rc.ID == exclude || c.IsLesson() {
 			continue
 		}
@@ -267,7 +287,7 @@ func (s *Server) practiceCard(now time.Time, inScope func(content.Card) bool, ex
 	if pick == nil {
 		return nil, nil
 	}
-	c, _ := s.lib.Card(pick.ID)
+	c, _ := s.library().Card(pick.ID)
 	return &c, nil
 }
 
@@ -309,7 +329,7 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	if _, ok := s.lib.Course(active); !ok {
+	if _, ok := s.library().Course(active); !ok {
 		active = ""
 	}
 	extra, err := s.extraNew(s.now())
@@ -328,7 +348,7 @@ func (s *Server) handleSetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.ActiveCourse != nil {
-		if _, ok := s.lib.Course(*req.ActiveCourse); *req.ActiveCourse != "" && !ok {
+		if _, ok := s.library().Course(*req.ActiveCourse); *req.ActiveCourse != "" && !ok {
 			http.Error(w, "unknown course", http.StatusBadRequest)
 			return
 		}
@@ -384,7 +404,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	c, ok := s.lib.Card(req.CardID)
+	c, ok := s.library().Card(req.CardID)
 	if !ok {
 		http.Error(w, "unknown card", http.StatusNotFound)
 		return
@@ -406,7 +426,7 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	card, ok := s.lib.Card(req.CardID)
+	card, ok := s.library().Card(req.CardID)
 	if !ok {
 		http.Error(w, "unknown card", http.StatusNotFound)
 		return
@@ -468,10 +488,10 @@ func (s *Server) handleCourses(w http.ResponseWriter, r *http.Request) {
 	for _, id := range dueIDs {
 		isDue[id] = true
 	}
-	out := make([]courseInfo, 0, len(s.lib.Courses))
-	for _, c := range s.lib.Courses {
+	out := make([]courseInfo, 0, len(s.library().Courses))
+	for _, c := range s.library().Courses {
 		info := courseInfo{Course: c}
-		for _, card := range s.lib.Cards {
+		for _, card := range s.library().Cards {
 			if card.Course != c.ID {
 				continue
 			}
@@ -508,8 +528,8 @@ func (s *Server) handleUnits(w http.ResponseWriter, r *http.Request) {
 	for _, id := range dueIDs {
 		isDue[id] = true
 	}
-	out := make([]unitInfo, 0, len(s.lib.Units))
-	for _, u := range s.lib.Units {
+	out := make([]unitInfo, 0, len(s.library().Units))
+	for _, u := range s.library().Units {
 		info := unitInfo{Unit: u, Total: len(u.CardIDs)}
 		for _, id := range u.CardIDs {
 			if seen[id] {
@@ -518,7 +538,7 @@ func (s *Server) handleUnits(w http.ResponseWriter, r *http.Request) {
 			if isDue[id] {
 				info.Due++
 			}
-			c, _ := s.lib.Card(id)
+			c, _ := s.library().Card(id)
 			if c.IsDrill() {
 				info.DrillCount++
 			}
@@ -552,7 +572,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"stats": st, "due": len(dueIDs), "new_left": newLeft, "cards": len(s.lib.Cards), "warnings": s.cfg.Warnings})
+	writeJSON(w, map[string]any{"stats": st, "due": len(dueIDs), "new_left": newLeft, "cards": len(s.library().Cards), "warnings": s.cfg.Warnings})
 }
 
 type quizRequest struct {
@@ -577,7 +597,7 @@ func (s *Server) handleQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var pool []content.Card
-	for _, c := range s.lib.Cards {
+	for _, c := range s.library().Cards {
 		if retired[c.ID] {
 			continue
 		}
@@ -705,7 +725,7 @@ func (s *Server) handleExplain(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	card, ok := s.lib.Card(req.CardID)
+	card, ok := s.library().Card(req.CardID)
 	if !ok {
 		http.Error(w, "unknown card", http.StatusNotFound)
 		return
@@ -721,10 +741,10 @@ func (s *Server) handleExplain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var b strings.Builder
-	if c, ok := s.lib.Course(card.Course); ok {
+	if c, ok := s.library().Course(card.Course); ok {
 		fmt.Fprintf(&b, "Course: %s\n", c.Title)
 	}
-	if u, ok := s.lib.Unit(card.Unit); ok {
+	if u, ok := s.library().Unit(card.Unit); ok {
 		fmt.Fprintf(&b, "Unit: %s", u.Title)
 		if u.Focus != "" {
 			fmt.Fprintf(&b, " (focus: %s)", u.Focus)
@@ -793,7 +813,7 @@ func (s *Server) handleRetire(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if _, ok := s.lib.Card(req.CardID); !ok {
+	if _, ok := s.library().Card(req.CardID); !ok {
 		http.Error(w, "unknown card", http.StatusNotFound)
 		return
 	}
@@ -843,7 +863,7 @@ func (s *Server) handleRetired(w http.ResponseWriter, r *http.Request) {
 	}
 	course := r.URL.Query().Get("course")
 	out := []retiredCard{}
-	for _, c := range s.lib.Cards {
+	for _, c := range s.library().Cards {
 		if !retired[c.ID] || (course != "" && c.Course != course) {
 			continue
 		}
