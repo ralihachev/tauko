@@ -34,8 +34,9 @@ func setup(args []string) error {
 		source = abs
 	}
 
+	// Restart rather than reuse a running server: after an upgrade it is still the old binary.
 	step("Starting the tauko server")
-	if err := ensure(); err != nil {
+	if err := restartServer(); err != nil {
 		return err
 	}
 	ok("server on " + serverURL())
