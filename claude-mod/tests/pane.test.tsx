@@ -244,3 +244,78 @@ test('with no courses installed, the pane says how to get one', async ($, on) =>
   expect((await ui.find({ type: 'Text', text: /tauko gen/ }))?.text).toContain('Kubernetes networking')
   await ui.unmount()
 })
+
+test('a lesson shows its text; got it marks it read and moves on', async ($, on) => {
+  const LESSON = {
+    id: 'q-l1', unit: 'q1', unit_title: 'Qubits', kind: 'lesson', instruction: 'Learn', prompt: 'Superposition',
+    body: 'A qubit holds a mix of 0 and 1 until you measure it.', answers: [],
+  }
+  const posts: { url: string; body: unknown }[] = []
+  let served = 0
+  on('http.fetch', (_, e) => {
+    if (e.init?.method === 'POST') posts.push({ url: e.url, body: JSON.parse(e.init.body ?? '{}') })
+    if (e.url.includes('/api/next')) {
+      served++
+      return json(served === 1 ? { card: LESSON, is_new: true, scope: '', due: 0, new_left: 9 } : { card: CARD, is_new: true, scope: '', due: 0, new_left: 8 })
+    }
+    return json({ read: true })
+  })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /holds a mix/ }))?.text).toContain('until you measure it')
+  await ui.press({ key: 'got-it' })
+  expect(posts.find(p => p.url.endsWith('/api/review'))?.body).toEqual({ card_id: 'q-l1', rating: 3, mode: 'lesson' })
+  expect((await ui.find({ type: 'Text', text: /Pekka/ }))?.text).toBe('Pekka on ___ kuin veljensä.')
+  await ui.unmount()
+})
+
+test('e explains the answer you gave, inside the card', async ($, on) => {
+  const asked: unknown[] = []
+  on('http.fetch', (_, e) => {
+    if (e.url.endsWith('/api/explain')) {
+      asked.push(JSON.parse(e.init?.body ?? '{}'))
+      return json({ text: 'Pidempi is the comparative of pitkä: the k becomes d.', cached: false })
+    }
+    if (e.url.endsWith('/api/check')) return json({ verdict: 'wrong', expected: 'pidempi', suggested_rating: 1 })
+    return json({ card: CARD, is_new: false, scope: '', due: 1, new_left: 0 })
+  })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'answer:b1-01-g01', text: 'pitkämpi', kind: 'submit' })
+  await ui.press({ key: 'explain' })
+  expect(asked).toEqual([{ card_id: 'b1-01-g01', answer: 'pitkämpi' }])
+  expect((await ui.find({ type: 'Text', text: /comparative of pitkä/ }))?.text).toContain('k becomes d')
+  await ui.unmount()
+})
+
+test('k retires a card after answering, and undo brings it back', async ($, on) => {
+  const posts: { url: string; body: unknown }[] = []
+  on('http.fetch', (_, e) => {
+    if (e.init?.method === 'POST') posts.push({ url: e.url, body: JSON.parse(e.init.body ?? '{}') })
+    if (e.url.endsWith('/api/check')) return json({ verdict: 'correct', expected: 'pidempi', suggested_rating: 3 })
+    if (e.url.includes('/api/next')) return json({ card: CARD, is_new: false, scope: '', due: 3, new_left: 0 })
+    return json({})
+  })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'answer:b1-01-g01', text: 'pidempi', kind: 'submit' })
+  await ui.press({ key: 'retire' })
+  expect(posts.find(p => p.url.endsWith('/api/retire'))?.body).toEqual({ card_id: 'b1-01-g01' })
+  expect((await ui.find({ type: 'Text', text: /Retired/ }))?.text).toContain('Pekka on ___')
+
+  await ui.press({ key: 'undo' })
+  expect(posts.find(p => p.url.endsWith('/api/unretire'))?.body).toEqual({ card_id: 'b1-01-g01' })
+  expect(await ui.find({ type: 'Text', text: /Retired/ })).toBeUndefined()
+  await ui.unmount()
+})

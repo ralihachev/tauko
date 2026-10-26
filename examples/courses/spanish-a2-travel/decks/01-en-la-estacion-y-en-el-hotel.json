@@ -14,7 +14,8 @@
       "note": "'Quisiera' is the most polite way to say 'I would like'.",
       "prompt": "___ un billete para Sevilla, por favor.",
       "translation": "I'd like a ticket to Seville, please.",
-      "type": "cloze"
+      "type": "cloze",
+      "lesson": "spanish-a2-travel-u01-l01"
     },
     {
       "answers": [
@@ -28,7 +29,8 @@
       "note": "In the present tense, 'salir' (to leave) is irregular only in the yo form (salgo); 'sale' is regular. 'Qué' needs its accent in questions.",
       "prompt": "How do you ask 'What time does the train leave?' in Spanish?",
       "translation": "What time does the train leave?",
-      "type": "qa"
+      "type": "qa",
+      "lesson": "spanish-a2-travel-u01-l02"
     },
     {
       "answers": [
@@ -51,7 +53,8 @@
       "note": "'Quiero' can sound blunt; 'quisiera' softens the request.",
       "prompt": "Make it polite using 'quisiera': Quiero una habitación individual.",
       "translation": "I'd like a single room.",
-      "type": "transform"
+      "type": "transform",
+      "lesson": "spanish-a2-travel-u01-l01"
     }
   ],
   "focus": "Polite requests with 'quisiera'",
@@ -69,7 +72,8 @@
         "platform",
         "station platform"
       ],
-      "term": "el andén"
+      "term": "el andén",
+      "lesson": "spanish-a2-travel-u01-l02"
     },
     {
       "example": "Quisiera un billete de ida y vuelta a Toledo.",
@@ -79,7 +83,8 @@
         "return ticket",
         "round-trip ticket"
       ],
-      "term": "el billete de ida y vuelta"
+      "term": "el billete de ida y vuelta",
+      "lesson": "spanish-a2-travel-u01-l02"
     },
     {
       "example": "¿Tienen una habitación doble para esta noche?",
@@ -88,7 +93,24 @@
       "meanings": [
         "double room"
       ],
-      "term": "la habitación doble"
+      "term": "la habitación doble",
+      "lesson": "spanish-a2-travel-u01-l01"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "spanish-a2-travel-u01-l01",
+      "title": "Asking politely with quisiera",
+      "body": "At a ticket desk or a hotel, 'quiero' (I want) can sound blunt. Say 'quisiera' (I would like) instead. It goes before a noun or a verb: 'Quisiera un billete para Sevilla', 'Quisiera reservar una habitación'. 'Me gustaría' (I would like) works the same way and is just as polite.",
+      "example": "Quisiera una habitación doble, por favor.",
+      "example_translation": "I'd like a double room, please."
+    },
+    {
+      "id": "spanish-a2-travel-u01-l02",
+      "title": "At the station",
+      "body": "To ask about trains, start with '¿A qué hora...?' (At what time...?) and use 'salir' (to leave) or 'llegar' (to arrive): '¿A qué hora sale el tren?'. A ticket is 'un billete': 'de ida' is one way, 'de ida y vuelta' is a return. Trains leave from 'el andén' (the platform).",
+      "example": "¿De qué andén sale el tren para Toledo?",
+      "example_translation": "Which platform does the train to Toledo leave from?"
     }
   ]
 }

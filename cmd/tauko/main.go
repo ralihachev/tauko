@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ralihachev/tauko/internal/content"
+	"github.com/ralihachev/tauko/internal/llm"
 	"github.com/ralihachev/tauko/internal/server"
 	"github.com/ralihachev/tauko/internal/store"
 	"github.com/ralihachev/tauko/web"
@@ -25,6 +26,7 @@ const usage = `tauko: learn anything in the gaps while Claude works
 
 usage:
   tauko setup                                  install the Claude Code pane, start the server
+  tauko claude [claude flags…]                 start Claude Code in fullscreen, so the pane docks beside the chat
   tauko doctor                                 check the setup and say how to fix it
   tauko uninstall [-purge]                     remove the pane and stop the server
   tauko serve [-addr 127.0.0.1:8787] [-db ~/.tauko/tauko.db] [-new-per-day 20] [-courses dir]
@@ -33,6 +35,8 @@ usage:
   tauko units                                  courses, units and progress
   tauko course [id|all]                        show courses, or switch the one you study
   tauko more [n]                               learn n more unseen cards today (default 10)
+  tauko retired [course]                       cards you marked "I know this" (k after answering)
+  tauko restore <card-id>…                     bring retired cards back
   tauko gen "topic" [-level x] [-from file]    generate a course with Claude, verified, installed
   tauko add [id|folder]                        list the course gallery, or install a course
   tauko stats                                  today's numbers
@@ -69,6 +73,10 @@ func main() {
 		err = gen(args)
 	case "add":
 		err = add(args)
+	case "retired":
+		err = withServer(func() error { return retiredCmd(args) })
+	case "restore":
+		err = withServer(func() error { return restore(args) })
 	case "more":
 		err = withServer(func() error { return more(args) })
 	case "stats":
@@ -81,6 +89,8 @@ func main() {
 		}
 	case "setup":
 		err = setup(args)
+	case "claude":
+		err = launchClaude(args)
 	case "doctor":
 		err = doctor()
 	case "uninstall":
@@ -139,7 +149,11 @@ func serve(args []string) error {
 	defer st.Close()
 
 	token := os.Getenv("TAUKO_TOKEN")
-	srv := server.New(lib, st, server.Config{NewPerDay: *newPerDay, Token: token, Warnings: warnings})
+	cfg := server.Config{NewPerDay: *newPerDay, Token: token, Warnings: warnings}
+	if llm.Available() {
+		cfg.Explain = llm.Claude("")
+	}
+	srv := server.New(lib, st, cfg)
 	if token == "" && !isLoopback(*addr) {
 		return errors.New("refusing to listen on a non-loopback address without TAUKO_TOKEN")
 	}

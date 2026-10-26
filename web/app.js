@@ -115,6 +115,8 @@ async function loadNext() {
   state.phase = "ask";
   state.check = null;
   state.answer = "";
+  state.explanation = "";
+  state.explaining = false;
   renderLearn();
 }
 
@@ -186,6 +188,17 @@ function renderLearn() {
   const extra = (next.is_new ? `<span class="tag new">new</span>` : "")
     + (next.practice ? `<span class="tag practice">practice</span>` : "")
     + (next.focus ? `<span class="tag">${esc(next.focus)}</span>` : "");
+  // A lesson: read it, then straight on to its quick check.
+  if (card.kind === "lesson") {
+    el.innerHTML = cardHead(card, `<span class="tag lesson">lesson</span>` + extra)
+      + `<div class="lesson-body">${esc(card.body)}</div>`
+      + (card.example ? `<div class="example">${esc(card.example)}${card.example_translation ? ` <i>(${esc(card.example_translation)})</i>` : ""}</div>` : "")
+      + explanationBlock()
+      + `<div class="answer-area"><button class="primary" data-action="read">Got it → quick check</button>
+         <button class="link" data-action="explain">${state.explaining ? "Asking Claude…" : "Explain differently"}</button>
+         <div class="kbd">enter: got it</div></div>`;
+    return;
+  }
   let body = cardHead(card, extra);
   if (state.phase === "ask") {
     body += `<div class="answer-area">${state.mode === "type"
@@ -194,10 +207,63 @@ function renderLearn() {
   } else {
     const suggested = state.check ? state.check.suggested_rating : 3;
     body += revealBlock(card, state.check, state.answer);
-    body += `<div class="answer-area">${gradeButtons(suggested)}</div>`;
+    body += explanationBlock();
+    body += `<div class="answer-area">${gradeButtons(suggested)}
+      <div class="card-actions">
+        <button class="link" data-action="explain">${state.explaining ? "Asking Claude…" : "Explain this"}</button>
+        <button class="link" data-action="retire">I know this: don't show again</button>
+      </div></div>`;
+  }
+  if (state.lastRetired) {
+    body = `<div class="retired-note">✓ Retired “${esc(state.lastRetired.prompt)}” <button class="link" data-action="undo-retire">undo</button></div>` + body;
   }
   el.innerHTML = body;
   if (state.phase === "ask" && state.mode === "type") $("#answer").focus();
+}
+
+function explanationBlock() {
+  if (state.explaining) return `<div class="note">Asking Claude…</div>`;
+  return state.explanation ? `<div class="note why"><b>Why</b><br>${esc(state.explanation)}</div>` : "";
+}
+
+// explain asks Claude why the answer is what it is, for what you typed.
+async function explain() {
+  if (!state.card || state.explaining) return;
+  const id = state.card.id;
+  state.explaining = true;
+  state.explanation = "";
+  renderLearn();
+  try {
+    const res = await api("POST", "/api/explain", { card_id: id, answer: state.answer || "" });
+    if (state.card?.id === id) state.explanation = res.text;
+  } catch (e) {
+    state.explanation = e.message.startsWith("503") ? "Explain needs Claude Code (the claude command) installed." : "Couldn't get an explanation right now.";
+  }
+  state.explaining = false;
+  renderLearn();
+}
+
+// retire marks the card "I know this"; the next card offers undo.
+async function retire() {
+  if (!state.card) return;
+  await api("POST", "/api/retire", { card_id: state.card.id });
+  state.lastRetired = { id: state.card.id, prompt: state.card.prompt };
+  state.last = state.card.id;
+  await loadNext();
+  refreshCounts();
+}
+
+async function unretire(id) {
+  await api("POST", "/api/unretire", { card_id: id });
+  if (state.lastRetired?.id === id) state.lastRetired = null;
+}
+
+async function markRead() {
+  if (!state.card || state.card.kind !== "lesson") return;
+  await api("POST", "/api/review", { card_id: state.card.id, rating: 3, mode: "lesson" });
+  state.last = state.card.id;
+  await loadNext();
+  refreshCounts();
 }
 
 async function submitAnswer() {
@@ -218,6 +284,7 @@ function reveal() {
 async function grade(rating) {
   const { card, check, answer, mode } = state;
   if (!card || state.phase !== "revealed") return;
+  state.lastRetired = null;
   const el = $("#card");
   el.classList.add(rating === 1 ? "out-left" : "out-right");
   await api("POST", "/api/review", {
@@ -315,7 +382,14 @@ async function nextQuiz() {
 // ---------- units ----------
 
 async function renderUnits() {
-  const [courses, units] = await Promise.all([api("GET", "/api/courses"), api("GET", "/api/units")]);
+  const [courses, units, retired] = await Promise.all([api("GET", "/api/courses"), api("GET", "/api/units"), api("GET", "/api/retired")]);
+  const retiredList = (course) => {
+    const rs = retired.filter((r) => r.course === course);
+    if (!rs.length) return "";
+    return `<details class="unit"><summary>Retired cards (${rs.length}): you marked these "I know this"</summary>
+      ${rs.map((r) => `<div class="retired-row"><span>${esc(r.prompt)} → <b>${esc(r.answer)}</b></span>
+        <button class="link" data-unretire="${esc(r.id)}">bring back</button></div>`).join("")}</details>`;
+  };
   const unitCard = (u, focusLabel) => {
     const pct = u.total ? Math.round(100 * u.seen / u.total) : 0;
     const quiz = u.best_quiz != null ? ` · quiz ${Math.round(u.best_quiz * 100)}%` : "";
@@ -325,6 +399,7 @@ async function renderUnits() {
       ${sub ? `<div class="hint">${sub}</div>` : ""}
       <div class="bar"><div style="width:${pct}%"></div></div>
       ${u.focus_note ? `<details><summary>${esc(focusLabel || "Notes")}</summary>${esc(u.focus_note)}</details>` : ""}
+      ${(u.lessons || []).map((l) => `<details><summary>${l.read ? "✓" : "○"} Lesson: ${esc(l.title)}</summary>${esc(l.body)}${l.example ? `<br><i>${esc(l.example)}</i>` : ""}</details>`).join("")}
       <div class="unit-actions">
         <button data-learn-unit="${esc(u.id)}">Practice</button>
         <button data-quiz-unit="${esc(u.id)}">Quiz</button>
@@ -339,6 +414,7 @@ async function renderUnits() {
     ${c.description ? `<div class="hint">${esc(c.description)}</div>` : ""}
     <button class="primary" data-learn-course="${esc(c.id)}">Practice this course</button>
     ${units.filter((u) => u.course === c.id).map((u) => unitCard(u, c.focus_label)).join("")}
+    ${retiredList(c.id)}
   `).join("") + `<button class="primary" data-learn-course="">Practice everything</button>`;
 }
 
@@ -375,6 +451,11 @@ document.addEventListener("click", async (e) => {
     else if (d.action === "more") { await api("POST", "/api/more", { n: 10 }); await loadNext(); refreshCounts(); }
     else if (d.quizUnit) { state.quizUnit = d.quizUnit; show("quiz"); }
     else if (d.action === "reveal") reveal();
+    else if (d.action === "read") await markRead();
+    else if (d.action === "retire") await retire();
+    else if (d.action === "undo-retire") { await unretire(state.lastRetired.id); state.last = ""; await loadNext(); refreshCounts(); }
+    else if (d.unretire) { await unretire(d.unretire); renderUnits(); }
+    else if (d.action === "explain") await explain();
     else if (d.action === "submit") await submitAnswer();
     else if (d.action === "quiz-start") await startQuiz($("#quiz-unit").value);
     else if (d.action === "quiz-next") await nextQuiz();
@@ -398,9 +479,16 @@ document.addEventListener("keydown", async (e) => {
   const typing = e.target.tagName === "INPUT";
   try {
     if (state.view === "learn") {
-      if (state.phase === "ask") {
+      if (state.card?.kind === "lesson") {
+        if (e.key === "Enter") { e.preventDefault(); await markRead(); }
+        else if (e.key === "e") await explain();
+      } else if (state.phase === "ask") {
         if (typing && e.key === "Enter") { e.preventDefault(); await submitAnswer(); }
         else if (!typing && state.mode === "tap" && (e.key === " " || e.key === "Enter")) { e.preventDefault(); reveal(); }
+      } else if (e.key === "e") {
+        await explain();
+      } else if (e.key === "k") {
+        await retire();
       } else if (["1", "2", "3", "4"].includes(e.key)) {
         await grade(Number(e.key));
       } else if (e.key === "Enter" || e.key === " ") {

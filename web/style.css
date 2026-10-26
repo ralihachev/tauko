@@ -163,3 +163,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .practice-note { color: var(--accent); }
 .tag.practice { color: var(--accent); border-color: var(--accent); }
 button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: inherit; }
+
+.lesson-body { font-size: 18px; line-height: 1.55; margin-top: 14px; }
+.tag.lesson { color: var(--good); border-color: var(--good); }
+.why { margin-top: 10px; }
+
+.card-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.retired-note { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+.retired-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; }

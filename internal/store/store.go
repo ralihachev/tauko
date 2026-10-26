@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS quiz_result (
 CREATE TABLE IF NOT EXISTS kv (
 	key   TEXT PRIMARY KEY,
 	value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS retired (
+	card_id    TEXT PRIMARY KEY,
+	retired_at INTEGER NOT NULL
 );`
 
 // Store wraps the SQLite database and the FSRS scheduler.
@@ -121,9 +125,31 @@ func (s *Store) Review(id string, rating int, mode, answer, verdict string, now 
 	return next.Due, tx.Commit()
 }
 
+// MarkRead records that a lesson was read. Lessons are read once, not reviewed, so the
+// state row is never due; the log entry keeps today's counts and the streak honest.
+func (s *Store) MarkRead(id string, now time.Time) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	never := now.AddDate(100, 0, 0).Unix()
+	if _, err := tx.Exec(`INSERT INTO card_state (card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review)
+		VALUES (?, ?, 0, 0, 0, 0, 1, 0, ?, ?)
+		ON CONFLICT(card_id) DO UPDATE SET reps = reps + 1, last_review = excluded.last_review`,
+		id, never, fsrs.Review, now.Unix()); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO review_log (card_id, rating, mode, answer, verdict, reviewed_at) VALUES (?, 3, 'lesson', '', '', ?)`,
+		id, now.Unix()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // Due returns IDs of seen cards due at or before now, oldest due first.
 func (s *Store) Due(now time.Time) ([]string, error) {
-	return s.ids(`SELECT card_id FROM card_state WHERE due <= ? ORDER BY due`, now.Unix())
+	return s.ids(`SELECT card_id FROM card_state WHERE due <= ? AND card_id NOT IN (SELECT card_id FROM retired) ORDER BY due`, now.Unix())
 }
 
 // Seen returns the set of card IDs that have scheduling state.
@@ -148,7 +174,8 @@ type Recall struct {
 
 // Recalls returns every seen card with its current retrievability.
 func (s *Store) Recalls(now time.Time) ([]Recall, error) {
-	rows, err := s.db.Query(`SELECT card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review FROM card_state`)
+	rows, err := s.db.Query(`SELECT card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review
+		FROM card_state WHERE card_id NOT IN (SELECT card_id FROM retired)`)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +221,8 @@ type DayStats struct {
 	AccuracyToday float64 `json:"accuracy_today"`
 	Streak        int     `json:"streak_days"`
 	TotalReviews  int     `json:"total_reviews"`
-	Learned       int     `json:"learned"` // cards in review state
+	Learned       int     `json:"learned"` // cards in review state, plus retired ones
+	Retired       int     `json:"retired"` // cards marked "I know this"
 }
 
 // Stats computes activity stats; dayStart is local midnight of today.
@@ -211,9 +239,13 @@ func (s *Store) Stats(dayStart time.Time) (DayStats, error) {
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM review_log`).Scan(&st.TotalReviews); err != nil {
 		return st, err
 	}
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM card_state WHERE state = ?`, fsrs.Review).Scan(&st.Learned); err != nil {
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM retired`).Scan(&st.Retired); err != nil {
 		return st, err
 	}
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM card_state WHERE state = ? AND card_id NOT IN (SELECT card_id FROM retired)`, fsrs.Review).Scan(&st.Learned); err != nil {
+		return st, err
+	}
+	st.Learned += st.Retired
 	// Streak: consecutive days with at least one review, counting back from today
 	// (today may still be empty without breaking the streak).
 	day := dayStart
@@ -290,4 +322,30 @@ func (s *Store) ids(query string, args ...any) ([]string, error) {
 		out = append(out, id)
 	}
 	return out, rows.Err()
+}
+
+// Retire marks a card as known: it leaves reviews, practice and quizzes. Its schedule
+// is kept, so Unretire brings it back exactly where it was.
+func (s *Store) Retire(id string, now time.Time) error {
+	_, err := s.db.Exec(`INSERT INTO retired (card_id, retired_at) VALUES (?, ?) ON CONFLICT(card_id) DO NOTHING`, id, now.Unix())
+	return err
+}
+
+// Unretire brings a retired card back.
+func (s *Store) Unretire(id string) error {
+	_, err := s.db.Exec(`DELETE FROM retired WHERE card_id = ?`, id)
+	return err
+}
+
+// Retired returns the set of retired card IDs.
+func (s *Store) Retired() (map[string]bool, error) {
+	ids, err := s.ids(`SELECT card_id FROM retired ORDER BY retired_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
 }

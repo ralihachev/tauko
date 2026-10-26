@@ -134,3 +134,46 @@ func TestLoadTolerantSkipsBrokenCourse(t *testing.T) {
 		t.Errorf("courses=%d skipped=%v", len(lib.Courses), skipped)
 	}
 }
+
+func TestLessonsComeBeforeTheirCards(t *testing.T) {
+	deck := `{"id": "u1", "title": "U",
+		"lessons": [{"id": "l1", "title": "Superposition", "body": "A qubit holds a mix of 0 and 1 until measured."}],
+		"drills": [
+			{"id": "q0", "type": "qa", "prompt": "untagged", "answers": ["x"]},
+			{"id": "q1", "type": "qa", "prompt": "What does measuring do?", "answers": ["picks 0 or 1"], "lesson": "l1"},
+			{"id": "q2", "type": "qa", "prompt": "later", "answers": ["y"], "lesson": "l1"}
+		]}`
+	lib, err := Load(fstest.MapFS{
+		"c/x/course.json":   {Data: []byte(`{"id": "x", "title": "X"}`)},
+		"c/x/decks/01.json": {Data: []byte(deck)},
+	}, "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, c := range lib.Cards {
+		ids = append(ids, c.ID)
+	}
+	if got := strings.Join(ids, ","); got != "l1,q1,q2,q0" {
+		t.Errorf("order = %s, want l1,q1,q2,q0", got)
+	}
+	l, _ := lib.Card("l1")
+	if !l.IsLesson() || l.IsDrill() || l.Body == "" || l.Instruction != "Learn" {
+		t.Errorf("lesson card = %+v", l)
+	}
+}
+
+func TestLessonErrors(t *testing.T) {
+	for name, deck := range map[string]string{
+		"unknown lesson": `{"id": "u1", "title": "U", "drills": [{"id": "q", "type": "qa", "prompt": "p", "answers": ["a"], "lesson": "nope"}]}`,
+		"empty body":     `{"id": "u1", "title": "U", "lessons": [{"id": "l1", "title": "T", "body": " "}]}`,
+	} {
+		_, err := Load(fstest.MapFS{
+			"c/x/course.json":   {Data: []byte(`{"id": "x", "title": "X"}`)},
+			"c/x/decks/01.json": {Data: []byte(deck)},
+		}, "c")
+		if err == nil {
+			t.Errorf("%s: no error", name)
+		}
+	}
+}

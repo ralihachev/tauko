@@ -2,8 +2,10 @@
 package server
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log"
 	"math/rand/v2"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/ralihachev/tauko/internal/check"
 	"github.com/ralihachev/tauko/internal/content"
+	"github.com/ralihachev/tauko/internal/llm"
 	"github.com/ralihachev/tauko/internal/store"
 )
 
@@ -23,6 +26,7 @@ type Config struct {
 	NewPerDay int    // new cards introduced per day
 	Token     string // optional bearer token; empty disables auth
 	Warnings  []string
+	Explain   llm.Func // for "Explain this"; nil when Claude Code isn't installed
 }
 
 // Server handles API requests.
@@ -60,6 +64,10 @@ func (s *Server) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/settings", s.handleGetSettings)
 	mux.HandleFunc("POST /api/settings", s.handleSetSettings)
 	mux.HandleFunc("POST /api/more", s.handleMore)
+	mux.HandleFunc("POST /api/explain", s.handleExplain)
+	mux.HandleFunc("POST /api/retire", s.handleRetire)
+	mux.HandleFunc("POST /api/unretire", s.handleUnretire)
+	mux.HandleFunc("GET /api/retired", s.handleRetired)
 	mux.HandleFunc("GET /api/units", s.handleUnits)
 	mux.HandleFunc("GET /api/stats", s.handleStats)
 	mux.HandleFunc("POST /api/quiz", s.handleQuiz)
@@ -103,7 +111,7 @@ type nextResponse struct {
 	Focus       string        `json:"focus,omitempty"`
 	CourseTitle string        `json:"course_title,omitempty"`
 	Chars       []string      `json:"chars,omitempty"`
-	Scope       string        `json:"scope"` // the course being studied; "" = all courses
+	Scope       string        `json:"scope"`                // the course being studied; "" = all courses
 	NoCourses   bool          `json:"no_courses,omitempty"` // nothing installed yet
 }
 
@@ -202,6 +210,10 @@ func (s *Server) nextNew(now time.Time, inScope func(content.Card) bool, exclude
 	if err != nil {
 		return nil, err
 	}
+	retired, err := s.store.Retired()
+	if err != nil {
+		return nil, err
+	}
 	today := map[string]int{}
 	for _, id := range introduced {
 		if c, ok := s.lib.Card(id); ok {
@@ -212,7 +224,7 @@ func (s *Server) nextNew(now time.Time, inScope func(content.Card) bool, exclude
 	firstOf := map[string]bool{}
 	for i := range s.lib.Cards {
 		c := &s.lib.Cards[i]
-		if seen[c.ID] || !inScope(*c) || c.ID == exclude || firstOf[c.Course] {
+		if seen[c.ID] || retired[c.ID] || !inScope(*c) || c.ID == exclude || firstOf[c.Course] {
 			continue
 		}
 		firstOf[c.Course] = true // only each course's next card competes
@@ -238,7 +250,7 @@ func (s *Server) practiceCard(now time.Time, inScope func(content.Card) bool, ex
 	for i := range recalls {
 		rc := &recalls[i]
 		c, ok := s.lib.Card(rc.ID)
-		if !ok || !inScope(c) || rc.ID == exclude {
+		if !ok || !inScope(c) || rc.ID == exclude || c.IsLesson() {
 			continue
 		}
 		if now.Sub(rc.LastReview) >= practiceGap && (weakest == nil || rc.R < weakest.R) {
@@ -394,8 +406,17 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if _, ok := s.lib.Card(req.CardID); !ok {
+	card, ok := s.lib.Card(req.CardID)
+	if !ok {
 		http.Error(w, "unknown card", http.StatusNotFound)
+		return
+	}
+	if card.IsLesson() {
+		if err := s.store.MarkRead(card.ID, s.now()); err != nil {
+			serverError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"read": true})
 		return
 	}
 	due, err := s.store.Review(req.CardID, req.Rating, req.Mode, req.Answer, req.Verdict, s.now())
@@ -406,13 +427,23 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"next_due": due})
 }
 
+type lessonInfo struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Example   string `json:"example,omitempty"`
+	ExampleTr string `json:"example_translation,omitempty"`
+	Read      bool   `json:"read"`
+}
+
 type unitInfo struct {
 	content.Unit
-	Total      int      `json:"total"`
-	Seen       int      `json:"seen"`
-	Due        int      `json:"due"`
-	BestQuiz   *float64 `json:"best_quiz,omitempty"`
-	DrillCount int      `json:"drills"`
+	Lessons    []lessonInfo `json:"lessons,omitempty"`
+	Total      int          `json:"total"`
+	Seen       int          `json:"seen"`
+	Due        int          `json:"due"`
+	BestQuiz   *float64     `json:"best_quiz,omitempty"`
+	DrillCount int          `json:"drills"`
 }
 
 type courseInfo struct {
@@ -423,7 +454,7 @@ type courseInfo struct {
 }
 
 func (s *Server) handleCourses(w http.ResponseWriter, r *http.Request) {
-	seen, err := s.store.Seen()
+	seen, err := s.seenOrRetired()
 	if err != nil {
 		serverError(w, err)
 		return
@@ -458,7 +489,7 @@ func (s *Server) handleCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUnits(w http.ResponseWriter, r *http.Request) {
-	seen, err := s.store.Seen()
+	seen, err := s.seenOrRetired()
 	if err != nil {
 		serverError(w, err)
 		return
@@ -487,8 +518,13 @@ func (s *Server) handleUnits(w http.ResponseWriter, r *http.Request) {
 			if isDue[id] {
 				info.Due++
 			}
-			if c, _ := s.lib.Card(id); c.IsDrill() {
+			c, _ := s.lib.Card(id)
+			if c.IsDrill() {
 				info.DrillCount++
+			}
+			if c.IsLesson() {
+				info.Lessons = append(info.Lessons, lessonInfo{ID: c.ID, Title: c.Prompt, Body: c.Body,
+					Example: c.Example, ExampleTr: c.ExampleTr, Read: seen[c.ID]})
 			}
 		}
 		if b, ok := best[u.ID]; ok {
@@ -535,8 +571,16 @@ func (s *Server) handleQuiz(w http.ResponseWriter, r *http.Request) {
 	if req.N <= 0 || req.N > 50 {
 		req.N = 10
 	}
+	retired, err := s.store.Retired()
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	var pool []content.Card
 	for _, c := range s.lib.Cards {
+		if retired[c.ID] {
+			continue
+		}
 		inScope := (req.Course == "" || c.Course == req.Course) && (req.Unit == "" || c.Unit == req.Unit)
 		if inScope && !c.SelfGrade && (c.IsDrill() || c.Kind == content.KindProduce) {
 			pool = append(pool, c)
@@ -644,4 +688,170 @@ func writeJSON(w http.ResponseWriter, v any) {
 func serverError(w http.ResponseWriter, err error) {
 	log.Printf("error: %v", err)
 	http.Error(w, "internal error", http.StatusInternalServerError)
+}
+
+const explainSystem = `You are a patient tutor inside a flashcard app. The learner reads your reply in a
+small pane in a few seconds. Reply in plain text, at most 70 words, no headings or lists.
+Be specific: explain why the accepted answer is right and, if the learner's answer differs,
+exactly what is wrong with it. End with one short extra example. Write in English.`
+
+// handleExplain asks Claude why a card's answer is what it is, for this learner's
+// answer. Replies are cached per card and answer, so asking again is free.
+func (s *Server) handleExplain(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CardID string `json:"card_id"`
+		Answer string `json:"answer"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	card, ok := s.lib.Card(req.CardID)
+	if !ok {
+		http.Error(w, "unknown card", http.StatusNotFound)
+		return
+	}
+	key := "explain:" + card.ID + ":" + strings.ToLower(strings.TrimSpace(req.Answer))
+	if cached, err := s.store.Get(key); err == nil && cached != "" {
+		writeJSON(w, map[string]any{"text": cached, "cached": true})
+		return
+	}
+	if s.cfg.Explain == nil {
+		http.Error(w, "Explain needs Claude Code (the claude command) installed", http.StatusServiceUnavailable)
+		return
+	}
+
+	var b strings.Builder
+	if c, ok := s.lib.Course(card.Course); ok {
+		fmt.Fprintf(&b, "Course: %s\n", c.Title)
+	}
+	if u, ok := s.lib.Unit(card.Unit); ok {
+		fmt.Fprintf(&b, "Unit: %s", u.Title)
+		if u.Focus != "" {
+			fmt.Fprintf(&b, " (focus: %s)", u.Focus)
+		}
+		b.WriteString("\n")
+	}
+	if card.IsLesson() {
+		fmt.Fprintf(&b, "The learner read this lesson and wants it explained another way, more simply:\n%s\n%s\n", card.Prompt, card.Body)
+	} else {
+		fmt.Fprintf(&b, "Card (%s): %s\n", card.Instruction, card.Prompt)
+		if card.Hint != "" {
+			fmt.Fprintf(&b, "Hint shown: %s\n", card.Hint)
+		}
+		fmt.Fprintf(&b, "Accepted answers: %s\n", strings.Join(card.Answers, " | "))
+		if card.Translation != "" {
+			fmt.Fprintf(&b, "Translation: %s\n", card.Translation)
+		}
+		if card.Note != "" {
+			fmt.Fprintf(&b, "Note on the card: %s\n", card.Note)
+		}
+		if a := strings.TrimSpace(req.Answer); a != "" {
+			fmt.Fprintf(&b, "The learner answered: %s\n", a)
+		} else {
+			b.WriteString("The learner didn't type an answer.\n")
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	text, err := s.cfg.Explain(ctx, explainSystem, b.String(), nil)
+	if err != nil {
+		log.Printf("explain %s: %v", card.ID, err)
+		http.Error(w, "Claude couldn't explain this right now", http.StatusBadGateway)
+		return
+	}
+	text = strings.TrimSpace(text)
+	if err := s.store.Set(key, text); err != nil {
+		log.Printf("explain cache: %v", err)
+	}
+	writeJSON(w, map[string]any{"text": text, "cached": false})
+}
+
+// seenOrRetired is every card the learner has met, retired ones included.
+func (s *Server) seenOrRetired() (map[string]bool, error) {
+	seen, err := s.store.Seen()
+	if err != nil {
+		return nil, err
+	}
+	retired, err := s.store.Retired()
+	if err != nil {
+		return nil, err
+	}
+	for id := range retired {
+		seen[id] = true
+	}
+	return seen, nil
+}
+
+type cardRef struct {
+	CardID string `json:"card_id"`
+}
+
+// handleRetire marks a card "I know this": out of reviews, practice and quizzes.
+func (s *Server) handleRetire(w http.ResponseWriter, r *http.Request) {
+	var req cardRef
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if _, ok := s.lib.Card(req.CardID); !ok {
+		http.Error(w, "unknown card", http.StatusNotFound)
+		return
+	}
+	if err := s.store.Retire(req.CardID, s.now()); err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"retired": true})
+}
+
+func (s *Server) handleUnretire(w http.ResponseWriter, r *http.Request) {
+	var req cardRef
+	if !readJSON(w, r, &req) {
+		return
+	}
+	retired, err := s.store.Retired()
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if !retired[req.CardID] {
+		http.Error(w, "no retired card "+req.CardID+" (see tauko retired)", http.StatusNotFound)
+		return
+	}
+	if err := s.store.Unretire(req.CardID); err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"retired": false})
+}
+
+type retiredCard struct {
+	ID        string `json:"id"`
+	Course    string `json:"course"`
+	Unit      string `json:"unit"`
+	UnitTitle string `json:"unit_title"`
+	Prompt    string `json:"prompt"`
+	Answer    string `json:"answer"`
+}
+
+// handleRetired lists retired cards (?course= to narrow), newest first.
+func (s *Server) handleRetired(w http.ResponseWriter, r *http.Request) {
+	retired, err := s.store.Retired()
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	course := r.URL.Query().Get("course")
+	out := []retiredCard{}
+	for _, c := range s.lib.Cards {
+		if !retired[c.ID] || (course != "" && c.Course != course) {
+			continue
+		}
+		rc := retiredCard{ID: c.ID, Course: c.Course, Unit: c.Unit, UnitTitle: c.UnitTitle, Prompt: c.Prompt}
+		if len(c.Answers) > 0 {
+			rc.Answer = c.Answers[0]
+		}
+		out = append(out, rc)
+	}
+	writeJSON(w, out)
 }

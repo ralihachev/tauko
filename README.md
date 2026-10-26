@@ -39,7 +39,8 @@ tauko add                                     # or browse the gallery
 tauko add spanish-a2-travel                   #   and install one
 ```
 
-Start a new Claude Code session and send any prompt. That's all.
+Start Claude Code with `tauko claude` and send any prompt. That's all. (Plain `claude` works too, without
+the pane docked beside the chat.)
 
 The installer downloads a single ~5 MB binary for your OS and CPU, verifies its checksum, puts it in
 `~/.local/bin` (no sudo), starts a small local server and installs the Claude Code plugin. Nothing is
@@ -66,7 +67,9 @@ git clone https://github.com/ralihachev/tauko && cd tauko && make install && tau
 ```
 
 - **The card comes to you.** There's no app to open and nothing to remember: the wait itself is the trigger.
+- **Learn, then check.** New to a topic? A short lesson (under 40 seconds) introduces each idea, then a quick question checks it, then spaced cards keep it.
 - **Recall, not reading.** You type the answer (or recall it and reveal). A typo or a missing accent counts as "almost", not wrong.
+- **Ask why.** After any card, press `e` and Claude explains *your* answer: "cene without the accent is the subjunctive; past tense needs cené".
 - **One card is 5 to 20 seconds.** Leave mid-card when Claude is done; nothing is lost.
 - **The schedule adapts.** Grade each card Again, Hard, Good or Easy, and FSRS spaces its next review: minutes for new cards, weeks for well-known ones.
 - **It never runs dry.** tauko introduces 20 unseen cards a day so your reviews stay manageable. Once you've done today's cards, it switches to **practice**: the cards you're closest to forgetting, all day long. Press `n` to learn 10 more unseen cards instead.
@@ -86,6 +89,7 @@ A course mixes five kinds of cards:
 | **fill in** | Ayer ___ en un restaurante muy bueno. *(cenar, yo, past)* | cené |
 | **rewrite** | Make it polite: *Quiero una habitación individual.* | Quisiera una habitación individual. |
 | **question** | In which year did the Berlin Wall fall? | 1989 |
+| **lesson** | *A 40–80 word explanation of one idea, read once before its cards* | (nothing to answer: "got it") |
 
 Open questions with no single right answer ("Why did the Berlin Wall fall?") are
 **self-graded**: you write your answer, see a model answer next to it, and grade yourself.
@@ -101,7 +105,7 @@ tauko gen "my driving theory notes" -from notes.pdf     # text, markdown or PDF
 ```
 
 `tauko gen` uses Claude Code (`claude -p`, on your existing plan) in three steps:
-1. **Draft:** Claude writes the course.
+1. **Draft:** Claude writes the course: short lessons for each idea, then the cards that check them.
 2. **Verify:** a second, independent pass checks every answer and fixes wrong or ambiguous cards.
 3. **Check and preview:** tauko runs its own course checks and shows you the result.
 
@@ -163,12 +167,15 @@ keys for languages) is in **[docs/COURSES.md](docs/COURSES.md)**.
 | `enter` or `1`–`4` | grade it and move on |
 | `c` | switch course, or study all of them (new cards rotate) |
 | `n` | learn 10 more unseen cards today |
+| `e` | explain this card: why the answer is what it is, for what you typed |
+| `k` | I know this: retire the card so it never comes back (undo right after, or `tauko restore`) |
 | `m` | switch between typing and tap-to-reveal |
 | `Esc` / `ctrl+x tab` | back to the prompt / back to the card |
 | `/tauko` | open the pane by hand |
 
-`c`, `n` and `m` work once you've answered. While you type, every letter goes into your answer; Tab
-reaches the same buttons. In Claude Code's fullscreen mode (`/config`), the pane docks beside the chat.
+`c`, `n`, `e`, `k` and `m` work once you've answered. While you type, every letter goes into your answer; Tab
+reaches the same buttons. In Claude Code's fullscreen mode, the pane docks beside the chat: `tauko claude`
+starts it that way (it's `claude` with `CLAUDE_CODE_NO_FLICKER=1`, and takes the same flags), or turn it on in `/config`.
 The status line shows what's left: `📖 14 to do · 6 today · 🔥3`.
 
 **In the terminal:**
@@ -232,6 +239,8 @@ Run `tauko doctor`: it checks the binary, server, plugin and your courses, and s
 | `tauko course [id\|all]` | show courses, or switch the one every client studies |
 | `tauko learn` / `quiz` / `units` / `stats` | study and track progress in the terminal |
 | `tauko more [n]` | learn n more unseen cards today (default 10) |
+| `tauko retired` / `tauko restore <id>` | list cards you marked "I know this", bring one back |
+| `tauko claude` | start Claude Code in fullscreen so the pane docks beside the chat; flags pass through (`tauko claude --continue`) |
 | `tauko setup` | install the Claude Code plugin and start the server (safe to re-run; also upgrades) |
 | `tauko doctor` | check everything and say how to fix it |
 | `tauko restart` | restart the server after editing a course |
@@ -240,7 +249,7 @@ Run `tauko doctor`: it checks the binary, server, plugin and your courses, and s
 ## Roadmap
 
 - **Diff quizzes:** questions about the code Claude just changed, to keep your own skills sharp.
-- **Generate from the pane:** start `tauko gen` without leaving Claude Code.
+- **Generate from the pane:** `/tauko gen "topic"` without leaving Claude Code.
 - **Imports** from Anki and CSV.
 - **More places to wait:** Cursor/VS Code, build and CI waits (`tauko run make test`).
 - **Teams:** shared courses and small weekly leagues.

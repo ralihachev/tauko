@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -41,6 +42,7 @@ type card struct {
 	Example     string   `json:"example"`
 	ExampleTr   string   `json:"example_translation"`
 	SelfGrade   bool     `json:"self_grade"`
+	Body        string   `json:"body"`
 }
 
 type checkResult struct {
@@ -171,8 +173,32 @@ func learn(args []string) error {
 			fmt.Printf("  %s(%s)%s\n", dim, k.Hint, reset)
 		}
 
+		if k.Kind == "lesson" {
+			fmt.Printf("\n  %s\n", wrap(k.Body, 76, "  "))
+			if k.Example != "" {
+				fmt.Printf("  %s%s%s %s(%s)%s\n", dim, k.Example, reset, dim, k.ExampleTr, reset)
+			}
+			for {
+				s, ok := c.line(dim + "  [enter] got it · e explain differently " + reset)
+				if !ok || s == ":q" {
+					return nil
+				}
+				if s == "e" {
+					c.explain(k, "")
+					continue
+				}
+				break
+			}
+			if err := c.do("POST", "/api/review", map[string]any{"card_id": k.ID, "rating": 3, "mode": "lesson"}, nil); err != nil {
+				return err
+			}
+			last = k.ID
+			continue
+		}
+
 		var rating int
 		var answer, verdict string
+		why := func() { c.explain(k, answer) }
 		if *mode == "tap" || k.SelfGrade {
 			if k.SelfGrade && *mode == "type" {
 				// Free-form answer: write it down, compare, grade yourself.
@@ -189,7 +215,7 @@ func learn(args []string) error {
 			}
 			reveal(k)
 			var ok bool
-			if rating, ok = c.grade(3); !ok {
+			if rating, ok = c.grade(3, why); !ok {
 				return nil
 			}
 		} else {
@@ -204,10 +230,18 @@ func learn(args []string) error {
 			printVerdict(res)
 			reveal(k)
 			answer, verdict = s, res.Verdict
-			rating, ok = c.grade(res.Rating)
+			rating, ok = c.grade(res.Rating, why)
 			if !ok {
 				return nil
 			}
+		}
+		if rating == retireRating {
+			if err := c.do("POST", "/api/retire", map[string]string{"card_id": k.ID}, nil); err != nil {
+				return err
+			}
+			fmt.Printf("  %s✓ retired: it won't come back%s %s(undo: tauko restore %s)%s\n", green, reset, dim, k.ID, reset)
+			last = k.ID
+			continue
 		}
 		if err := c.do("POST", "/api/review", map[string]any{"card_id": k.ID, "rating": rating, "mode": *mode, "answer": answer, "verdict": verdict}, nil); err != nil {
 			return err
@@ -247,8 +281,12 @@ func reveal(k *card) {
 	}
 }
 
-// grade asks for a 1–4 rating; enter accepts def.
-func (c *client) grade(def int) (int, bool) {
+// retireRating is what grade returns when the learner types k ("I know this").
+const retireRating = -1
+
+// grade asks for a 1–4 rating; enter accepts def, e runs why (an explanation), and k
+// returns retireRating.
+func (c *client) grade(def int, why func()) (int, bool) {
 	labels := []string{"", "1 again", "2 hard", "3 good", "4 easy"}
 	var parts []string
 	for i := 1; i <= 4; i++ {
@@ -259,9 +297,16 @@ func (c *client) grade(def int) (int, bool) {
 		}
 	}
 	for {
-		s, ok := c.line(dim + "  " + strings.Join(parts, " · ") + "  [enter=" + strconv.Itoa(def) + "] " + reset)
+		s, ok := c.line(dim + "  " + strings.Join(parts, " · ") + " · e why · k know it  [enter=" + strconv.Itoa(def) + "] " + reset)
 		if !ok || s == ":q" {
 			return 0, false
+		}
+		if s == "e" {
+			why()
+			continue
+		}
+		if s == "k" {
+			return retireRating, true
 		}
 		if s == "" {
 			return def, true
@@ -524,5 +569,83 @@ func more(args []string) error {
 		return err
 	}
 	ok(fmt.Sprintf("%d unseen cards from your courses unlocked for today", res.NewLeft))
+	return nil
+}
+
+// explain prints Claude's explanation of a card for the given answer.
+func (c *client) explain(k *card, answer string) {
+	fmt.Printf("  %sAsking Claude…%s\r", dim, reset)
+	var res struct {
+		Text string `json:"text"`
+	}
+	slow := newClient(2 * time.Minute)
+	if err := slow.do("POST", "/api/explain", map[string]string{"card_id": k.ID, "answer": answer}, &res); err != nil {
+		if strings.Contains(err.Error(), "503") {
+			fmt.Printf("  %sExplain needs Claude Code (the claude command) installed.%s\n", yellow, reset)
+		} else {
+			fmt.Printf("  %sCouldn't get an explanation: %v%s\n", yellow, err, reset)
+		}
+		return
+	}
+	fmt.Printf("  %sWhy:%s %s\n", blue+bold, reset, wrap(res.Text, 76, "       "))
+}
+
+// wrap breaks s into lines of at most width runes, indenting continuation lines.
+func wrap(s string, width int, indent string) string {
+	var b strings.Builder
+	n := 0
+	for i, w := range strings.Fields(s) {
+		if i > 0 && n+1+len([]rune(w)) > width {
+			b.WriteString("\n" + indent)
+			n = 0
+		} else if i > 0 {
+			b.WriteByte(' ')
+			n++
+		}
+		b.WriteString(w)
+		n += len([]rune(w))
+	}
+	return b.String()
+}
+
+// retired lists cards marked "I know this".
+func retiredCmd(args []string) error {
+	var list []struct {
+		ID        string `json:"id"`
+		Course    string `json:"course"`
+		UnitTitle string `json:"unit_title"`
+		Prompt    string `json:"prompt"`
+		Answer    string `json:"answer"`
+	}
+	q := "/api/retired"
+	if len(args) == 1 {
+		q += "?course=" + url.QueryEscape(args[0])
+	}
+	if err := newClient(5*time.Second).do("GET", q, nil, &list); err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		fmt.Println("No retired cards. After answering a card, k marks it \"I know this\".")
+		return nil
+	}
+	for _, r := range list {
+		fmt.Printf("%s%s%s  %s → %s%s%s\n", dim, r.ID, reset, r.Prompt, green, r.Answer, reset)
+	}
+	fmt.Printf("%sbring one back: tauko restore <id>%s\n", dim, reset)
+	return nil
+}
+
+// restore brings retired cards back into reviews.
+func restore(args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: tauko restore <card-id>… (see tauko retired)")
+	}
+	c := newClient(5 * time.Second)
+	for _, id := range args {
+		if err := c.do("POST", "/api/unretire", map[string]string{"card_id": id}, nil); err != nil {
+			return err
+		}
+		ok("restored " + id)
+	}
 	return nil
 }

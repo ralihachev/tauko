@@ -47,11 +47,18 @@ Card kinds:
 
 | Kind | Source | Example |
 |---|---|---|
-| `recognize` | each `vocab` item | luotettava → *reliable* |
-| `produce` | each `vocab` item | reliable → *luotettava* |
+| `recognize` | each `vocab` item | el andén → *platform* |
+| `produce` | each `vocab` item | platform → *el andén* |
 | `cloze` | drill | NodePort Services get a port in 30000-___. → *32767* |
 | `transform` | drill | Rewrite in the passive: … → *…* |
 | `qa` | drill | What does a send on a nil channel do? → *blocks forever* |
+| `lesson` | `lessons` item | 40-80 words teaching one idea; read once, then its cards follow |
+
+**Lessons and explanations.** Flashcards keep what you've met; they don't introduce it. So a unit can
+open each idea with a micro-lesson (under 40 seconds, sized for the gap), then a quick check, then
+the spaced cards: worked example first, retrieval after. Lessons are read once, never scheduled.
+For depth on demand, **Explain** asks Claude (lean `claude -p`, cached per card and answer) why the
+answer is what it is for the answer the learner actually gave.
 
 `vocab` suits anything with term ↔ meaning pairs (languages, jargon, acronyms). `qa` suits
 everything else. A drill with `self_grade: true` has no checkable answer (explain, compare,
@@ -106,8 +113,13 @@ Content is not in the DB. A card without a `card_state` row is *new*.
 - Run the server on the VPS (or over Tailscale) so the phone always works
 - Telegram bot as an extra push surface ("Claude has been working for 2 min, here's a card")
 
-**v0.3: content engine**
+**v0.3: content engine** (done: `tauko gen`, `tauko add`, gallery)
 - Course generator: "make me a course on X" → Claude drafts units → review → publish
+
+**v0.4: teaching, not only testing** (done locally)
+- Lesson cards: learn → quick check → spaced cards; `tauko gen` writes them
+- Explain: Claude explains the learner's own answer, from any client
+- Next: match material to the wait (lessons on long Claude turns, reviews on short ones)
 - *Diff quizzes*: a course generated live from the code Claude just wrote (fights deskilling)
 - Import from Anki decks / CSV
 - Listening cards (TTS) and dictation for language courses

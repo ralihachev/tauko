@@ -28,7 +28,8 @@ git clone https://github.com/ralihachev/tauko && cd tauko
 make test          # Go tests, including content validation
 make dev           # server on :8787 serving courses from disk
 claude plugin test claude-mod        # tests for the Claude Code pane
-claude --plugin-dir ./claude-mod     # run Claude Code with your local pane
+make claude                          # Claude Code with your local pane, fullscreen
+                                     # (run `tauko uninstall` first if the released plugin is installed, to avoid loading two copies of the pane)
 ```
 
 | Path | What |

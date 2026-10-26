@@ -9,7 +9,8 @@
       "note": "Regular -ar verb: yo form ends in -é with an accent.",
       "prompt": "Ayer ___ en un restaurante muy bueno.",
       "translation": "Yesterday I had dinner at a very good restaurant.",
-      "type": "cloze"
+      "type": "cloze",
+      "lesson": "spanish-a2-travel-u02-l01"
     },
     {
       "answers": [
@@ -20,7 +21,8 @@
       "note": "'Ir' is irregular: fui, fuiste, fue, fuimos, fuisteis, fueron.",
       "prompt": "Anoche ___ al museo.",
       "translation": "Last night we went to the museum.",
-      "type": "cloze"
+      "type": "cloze",
+      "lesson": "spanish-a2-travel-u02-l02"
     },
     {
       "answers": [
@@ -32,7 +34,8 @@
       "note": "Verbs in -gar add 'u' in the yo form to keep the hard g sound: llegué.",
       "prompt": "Change to the pretérito indefinido: Llego a la estación a las ocho.",
       "translation": "I arrived at the station at eight.",
-      "type": "transform"
+      "type": "transform",
+      "lesson": "spanish-a2-travel-u02-l01"
     },
     {
       "answers": [
@@ -43,7 +46,8 @@
       "note": "'Tener' has the stem tuv- and no accents: tuve, tuviste, tuvo...",
       "prompt": "What is the yo form of 'tener' in the pretérito indefinido?",
       "translation": "I had",
-      "type": "qa"
+      "type": "qa",
+      "lesson": "spanish-a2-travel-u02-l02"
     }
   ],
   "focus": "Pretérito indefinido: regular endings and key irregulars",
@@ -60,7 +64,8 @@
       "meanings": [
         "yesterday"
       ],
-      "term": "ayer"
+      "term": "ayer",
+      "lesson": "spanish-a2-travel-u02-l01"
     },
     {
       "example": "Anoche cenamos en la plaza.",
@@ -69,7 +74,8 @@
       "meanings": [
         "last night"
       ],
-      "term": "anoche"
+      "term": "anoche",
+      "lesson": "spanish-a2-travel-u02-l01"
     },
     {
       "example": "La semana pasada viajé a Granada.",
@@ -78,7 +84,24 @@
       "meanings": [
         "last week"
       ],
-      "term": "la semana pasada"
+      "term": "la semana pasada",
+      "lesson": "spanish-a2-travel-u02-l01"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "spanish-a2-travel-u02-l01",
+      "title": "Talking about yesterday",
+      "body": "For finished actions at a specific time (ayer, anoche, la semana pasada), Spanish uses the pretérito indefinido. Regular -ar verbs end in -é, -aste, -ó, -amos, -asteis, -aron: cené, cenaste, cenó. Regular -er and -ir verbs end in -í, -iste, -ió: comí, viví. Mind the accent: 'cené' is past, 'cene' is a different form.",
+      "example": "Anoche cené en la plaza.",
+      "example_translation": "Last night I had dinner in the square."
+    },
+    {
+      "id": "spanish-a2-travel-u02-l02",
+      "title": "Ir and tener: two irregulars",
+      "body": "Some everyday verbs are irregular. 'Ir' (to go) and 'ser' (to be) share the same past forms: fui, fuiste, fue, fuimos, fuisteis, fueron. 'Tener' (to have) changes its stem to tuv-: tuve, tuviste, tuvo, tuvimos. Unlike the regular forms, these irregular ones carry no written accent.",
+      "example": "Ayer fuimos al museo y tuvimos suerte.",
+      "example_translation": "Yesterday we went to the museum and got lucky."
     }
   ]
 }

@@ -9,18 +9,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/ralihachev/tauko/internal/content"
+	"github.com/ralihachev/tauko/internal/llm"
 )
 
 // generator sends a system prompt and a prompt to a model and returns its text reply.
-// files are paths the model may read (for -from); nil means no tools at all.
-type generator func(ctx context.Context, system, prompt string, files []string) (string, error)
+type generator = llm.Func
 
 // genCourse is what the model writes: a course without IDs. tauko assigns the IDs itself,
 // so they're stable and unique no matter what the model does.
@@ -40,13 +39,21 @@ type genCourse struct {
 		Level     string `json:"level,omitempty"`
 		Focus     string `json:"focus,omitempty"`
 		FocusNote string `json:"focus_note,omitempty"`
-		Vocab     []struct {
+		Lessons   []struct {
+			Title              string `json:"title"`
+			Body               string `json:"body"`
+			Example            string `json:"example,omitempty"`
+			ExampleTranslation string `json:"example_translation,omitempty"`
+		} `json:"lessons,omitempty"`
+		Vocab []struct {
+			Lesson             int      `json:"lesson,omitempty"` // 1-based index into the unit's lessons
 			Term               string   `json:"term"`
 			Meanings           []string `json:"meanings"`
 			Example            string   `json:"example,omitempty"`
 			ExampleTranslation string   `json:"example_translation,omitempty"`
 		} `json:"vocab,omitempty"`
 		Drills []struct {
+			Lesson      int      `json:"lesson,omitempty"`
 			Type        string   `json:"type"`
 			Prompt      string   `json:"prompt"`
 			Hint        string   `json:"hint,omitempty"`
@@ -76,14 +83,22 @@ const genFormat = `JSON format (no "id" fields anywhere; the app assigns them):
   "units": [{
     "title": "...", "subtitle": "...", "level": "...",
     "focus": "the one idea or rule this unit drills",
-    "focus_note": "2-4 sentence explanation with an example",
-    "vocab": [{"term": "...", "meanings": ["...", "synonym"], "example": "...", "example_translation": "..."}],
-    "drills": [{"type": "qa | cloze | transform", "prompt": "...", "hint": "...",
+    "focus_note": "2-4 sentence summary of the unit",
+    "lessons": [{"title": "...", "body": "40-80 words that teach one idea", "example": "...", "example_translation": "..."}],
+    "vocab": [{"lesson": 1, "term": "...", "meanings": ["...", "synonym"], "example": "...", "example_translation": "..."}],
+    "drills": [{"lesson": 1, "type": "qa | cloze | transform", "prompt": "...", "hint": "...",
                 "answers": ["canonical answer", "every other correct variant"],
                 "translation": "...", "note": "one-line explanation shown after answering",
                 "self_grade": false}]
   }]
 }
+
+Lesson rules:
+- Each unit has 1-3 lessons. A lesson teaches ONE idea in 40-80 words of plain language, as if to a
+  smart friend who has never met it, with one concrete example. It is read in under 40 seconds.
+- Every card carries "lesson": N (1-based) for the lesson that teaches what it asks; nothing on a card
+  may require knowledge no lesson or earlier card gave. List each lesson's cards easiest first: the
+  first one is a quick check that anyone who just read the lesson can answer.
 
 Card rules:
 - Every card must be answerable in under 20 seconds. Prefer answers of 1-5 words that can be typed and checked.
@@ -106,6 +121,7 @@ For each card check:
 3. Is the prompt unambiguous, so that only the listed answers are correct? Sharpen the prompt or hint if not.
 4. Could a learner answer it in under 20 seconds? Shorten it if not.
 5. Is every note, translation and example correct?
+6. Is every lesson correct, clear to a newcomer, 40-80 words, and does it teach what its cards ask?
 Remove any card you can't make correct and unambiguous.
 
 Return the whole course in the same JSON format, corrected, plus a "changes" array of short strings,
@@ -134,10 +150,10 @@ func gen(args []string) error {
 		fl.Usage()
 		return errors.New(`give a topic, e.g. tauko gen "Kubernetes networking"`)
 	}
-	if _, err := exec.LookPath("claude"); err != nil {
+	if !llm.Available() {
 		return errors.New("tauko gen uses Claude Code (claude -p); install it from https://claude.com/claude-code")
 	}
-	return runGen(context.Background(), claudeGenerator(*model), genOptions{
+	return runGen(context.Background(), generator(llm.Claude(*model)), genOptions{
 		Topic: topic, Level: *level, Units: *units, Cards: *cards, From: *from, ID: *id,
 		Lang: *lang, Yes: *yes, DryRun: *dry, Dir: *dir, Restart: restartIfDefault(*dir),
 	})
@@ -194,7 +210,7 @@ func runGen(ctx context.Context, model generator, o genOptions) error {
 	if err != nil {
 		return fmt.Errorf("draft: %w", err)
 	}
-	ok(fmt.Sprintf("%d units, %d cards", len(draft.Units), countCards(draft)))
+	ok(fmt.Sprintf("%d units, %d lessons, %d cards", len(draft.Units), countLessons(draft), countCards(draft)))
 
 	step("Verifying every answer with a second, independent pass")
 	raw, _ := json.Marshal(draft)
@@ -314,12 +330,31 @@ func courseFiles(courseID string, gc *genCourse) (map[string][]byte, error) {
 				deck[k] = v
 			}
 		}
-		var vocab, drills []map[string]any
+		var lessons, vocab, drills []map[string]any
+		lessonID := func(n int) string {
+			if n < 1 || n > len(u.Lessons) {
+				return ""
+			}
+			return fmt.Sprintf("%s-l%02d", uid, n)
+		}
+		for j, ls := range u.Lessons {
+			if strings.TrimSpace(ls.Body) == "" {
+				continue
+			}
+			item := map[string]any{"id": lessonID(j + 1), "title": orDefault(ls.Title, fmt.Sprintf("Lesson %d", j+1)), "body": ls.Body}
+			if ls.Example != "" {
+				item["example"], item["example_translation"] = ls.Example, ls.ExampleTranslation
+			}
+			lessons = append(lessons, item)
+		}
 		for j, v := range u.Vocab {
 			if v.Term == "" || len(v.Meanings) == 0 {
 				continue
 			}
 			item := map[string]any{"id": fmt.Sprintf("%s-v%02d", uid, j+1), "term": v.Term, "meanings": v.Meanings}
+			if id := lessonID(v.Lesson); id != "" && strings.TrimSpace(u.Lessons[v.Lesson-1].Body) != "" {
+				item["lesson"] = id
+			}
 			if v.Example != "" {
 				item["example"], item["example_translation"] = v.Example, v.ExampleTranslation
 			}
@@ -330,6 +365,9 @@ func courseFiles(courseID string, gc *genCourse) (map[string][]byte, error) {
 				continue
 			}
 			item := map[string]any{"id": fmt.Sprintf("%s-q%02d", uid, j+1), "type": d.Type, "prompt": d.Prompt, "answers": d.Answers}
+			if id := lessonID(d.Lesson); id != "" && strings.TrimSpace(u.Lessons[d.Lesson-1].Body) != "" {
+				item["lesson"] = id
+			}
 			for k, v := range map[string]string{"hint": d.Hint, "translation": d.Translation, "note": d.Note} {
 				if v != "" {
 					item[k] = v
@@ -339,6 +377,9 @@ func courseFiles(courseID string, gc *genCourse) (map[string][]byte, error) {
 				item["self_grade"] = true
 			}
 			drills = append(drills, item)
+		}
+		if len(lessons) > 0 {
+			deck["lessons"] = lessons
 		}
 		if len(vocab) > 0 {
 			deck["vocab"] = vocab
@@ -403,7 +444,7 @@ func preview(courseID string, gc *genCourse) {
 		fmt.Printf("%s%s%s\n", dim, gc.Course.Description, reset)
 	}
 	for i, u := range gc.Units {
-		fmt.Printf("  %2d. %-34s %s%d cards%s\n", i+1, u.Title, dim, len(u.Vocab)*2+len(u.Drills), reset)
+		fmt.Printf("  %2d. %-34s %s%d lessons, %d cards%s\n", i+1, u.Title, dim, len(u.Lessons), len(u.Vocab)*2+len(u.Drills), reset)
 	}
 	shown := 0
 	fmt.Printf("\n%sSample cards%s\n", bold, reset)
@@ -429,6 +470,14 @@ func confirm(q string) bool {
 	return s == "" || s == "y" || s == "yes"
 }
 
+func countLessons(gc *genCourse) int {
+	n := 0
+	for _, u := range gc.Units {
+		n += len(u.Lessons)
+	}
+	return n
+}
+
 func countCards(gc *genCourse) int {
 	n := 0
 	for _, u := range gc.Units {
@@ -440,7 +489,11 @@ func countCards(gc *genCourse) int {
 var nonSlug = regexp.MustCompile(`[^a-z0-9]+`)
 
 func slug(s string) string {
-	s = strings.NewReplacer("ä", "a", "ö", "o", "å", "a", "ü", "u", "é", "e").Replace(strings.ToLower(s))
+	s = strings.NewReplacer(
+		"á", "a", "à", "a", "â", "a", "ä", "a", "å", "a", "ã", "a", "ç", "c", "é", "e", "è", "e", "ê", "e", "ë", "e",
+		"í", "i", "ì", "i", "î", "i", "ï", "i", "ñ", "n", "ó", "o", "ò", "o", "ô", "o", "ö", "o", "õ", "o", "ø", "o",
+		"ú", "u", "ù", "u", "û", "u", "ü", "u", "ß", "ss",
+	).Replace(strings.ToLower(s))
 	s = strings.Trim(nonSlug.ReplaceAllString(s, "-"), "-")
 	if len(s) > 40 {
 		s = strings.TrimRight(s[:40], "-")
@@ -462,47 +515,4 @@ func marshal(v any) ([]byte, error) {
 	enc.SetIndent("", "  ")
 	err := enc.Encode(v)
 	return buf.Bytes(), err
-}
-
-// claudeGenerator runs Claude Code headless and lean: its own system prompt, no tools
-// (Read only for -from files), no MCP servers, no skills, no saved session. That keeps
-// a call to a few thousand tokens instead of the ~100k a full session loads.
-func claudeGenerator(model string) generator {
-	return func(ctx context.Context, system, prompt string, files []string) (string, error) {
-		args := []string{"-p", "--output-format", "json", "--system-prompt", system,
-			"--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"}
-		if len(files) == 0 {
-			args = append(args, "--tools", "")
-		} else {
-			args = append(args, "--tools", "Read")
-			for _, f := range files {
-				args = append(args, "--add-dir", filepath.Dir(f))
-			}
-		}
-		if model != "" {
-			args = append(args, "--model", model)
-		}
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, "claude", args...)
-		cmd.Stdin = strings.NewReader(prompt)
-		cmd.Dir = os.TempDir()
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-		out, err := cmd.Output()
-		if err != nil {
-			return "", fmt.Errorf("claude -p: %w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		var env struct {
-			Result  string `json:"result"`
-			IsError bool   `json:"is_error"`
-		}
-		if err := json.Unmarshal(out, &env); err != nil {
-			return "", fmt.Errorf("claude -p: unexpected output: %w", err)
-		}
-		if env.IsError {
-			return "", fmt.Errorf("claude -p: %s", env.Result)
-		}
-		return env.Result, nil
-	}
 }

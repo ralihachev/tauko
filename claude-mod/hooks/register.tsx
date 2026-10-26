@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Color, EngineInterface, Register, RenderChildren } from 'claude-code'
 
-import type { Card, Check, CourseInfo, Mode, View } from '../types'
+import type { Card, Check, CourseInfo, Mode, RetiredRef, View } from '../types'
 
 // The tauko server (`tauko serve`) holds the cards and the schedule; this pane is
 // one more client of it, like the terminal and the PWA. The plugin also starts the
@@ -16,6 +16,8 @@ const EMPTY: View = {
   isNew: false,
   isPractice: false,
   noCourses: false,
+  explanation: '',
+  isExplaining: false,
   scope: '',
   focus: '',
   courseTitle: '',
@@ -27,7 +29,7 @@ const EMPTY: View = {
 }
 
 // Change the tag when View's fields change: it declines what an earlier version stored.
-const view = atom({ plugin: 'tauko', key: 'view' } as const, EMPTY, { shape: 'view-4' })
+const view = atom({ plugin: 'tauko', key: 'view' } as const, EMPTY, { shape: 'view-5' })
 const isBusy = atom({ plugin: 'tauko', key: 'isBusy' } as const, false)
 const mode = atom({ plugin: 'tauko', key: 'mode' } as const, 'type' as Mode)
 const lastId = atom({ plugin: 'tauko', key: 'lastId' } as const, '')
@@ -35,6 +37,8 @@ const reviewed = atom({ plugin: 'tauko', key: 'reviewed' } as const, 0)
 const isInstalled = atom({ plugin: 'tauko', key: 'isInstalled' } as const, true)
 const isPicking = atom({ plugin: 'tauko', key: 'isPicking' } as const, false)
 const courses = atom({ plugin: 'tauko', key: 'courses' } as const, [] as CourseInfo[], { shape: 'courses-1' })
+// The card just marked "I know this", so the next card can offer to undo it.
+const lastRetired = atom({ plugin: 'tauko', key: 'lastRetired' } as const, null as RetiredRef | null, { shape: 'retired-1' })
 
 type NextResponse = {
   card: Card | null
@@ -111,6 +115,78 @@ async function reveal($: EngineInterface): Promise<void> {
   await update($, view, cur => (cur.phase === 'ask' ? { ...cur, phase: 'revealed' as const } : cur))
 }
 
+// markRead records that a lesson was read and moves on to its quick check.
+async function markRead($: EngineInterface): Promise<void> {
+  const v = await read($, view)
+  if (!v.card || v.card.kind !== 'lesson') {
+    return
+  }
+  const card = v.card
+  try {
+    await api($, 'POST', '/api/review', { card_id: card.id, rating: 3, mode: 'lesson' })
+  } catch (err) {
+    await update($, view, () => ({ ...EMPTY, phase: 'offline' as const, message: String(err) }))
+    return
+  }
+  await update($, lastId, () => card.id)
+  await update($, reviewed, n => n + 1)
+  await update($, lastRetired, () => null)
+  await loadNext($)
+  void refreshStatus($)
+}
+
+// explain asks Claude why the answer is what it is, for what you typed (about 4 s;
+// instant when asked before).
+async function explain($: EngineInterface): Promise<void> {
+  const v = await read($, view)
+  if (!v.card || v.isExplaining) {
+    return
+  }
+  const card = v.card
+  await update($, view, cur => ({ ...cur, isExplaining: true, explanation: '' }))
+  let text: string
+  try {
+    text = (await api<{ text: string }>($, 'POST', '/api/explain', { card_id: card.id, answer: v.answer })).text
+  } catch (err) {
+    text = String(err).includes('503') ? 'Explain needs Claude Code (the claude command) installed.' : "Couldn't get an explanation right now."
+  }
+  await update($, view, cur => (cur.card?.id === card.id ? { ...cur, isExplaining: false, explanation: text } : cur))
+}
+
+// retire marks the card "I know this": it won't come back unless you undo.
+async function retire($: EngineInterface): Promise<void> {
+  const v = await read($, view)
+  if (!v.card || v.phase !== 'revealed') {
+    return
+  }
+  const card = v.card
+  try {
+    await api($, 'POST', '/api/retire', { card_id: card.id })
+  } catch (err) {
+    await update($, view, () => ({ ...EMPTY, phase: 'offline' as const, message: String(err) }))
+    return
+  }
+  await update($, lastRetired, () => ({ id: card.id, prompt: card.prompt }))
+  await update($, lastId, () => card.id)
+  await loadNext($)
+  void refreshStatus($)
+}
+
+async function undoRetire($: EngineInterface): Promise<void> {
+  const r = await read($, lastRetired)
+  if (!r) {
+    return
+  }
+  try {
+    await api($, 'POST', '/api/unretire', { card_id: r.id })
+  } catch (err) {
+    $.ui.log('tauko: ' + String(err))
+  }
+  await update($, lastRetired, () => null)
+  await update($, lastId, () => '')
+  void refreshStatus($)
+}
+
 async function grade($: EngineInterface, rating: number): Promise<void> {
   const v = await read($, view)
   if (!v.card || v.phase !== 'revealed') {
@@ -131,6 +207,7 @@ async function grade($: EngineInterface, rating: number): Promise<void> {
   }
   await update($, lastId, () => card.id)
   await update($, reviewed, n => n + 1)
+  await update($, lastRetired, () => null)
   await loadNext($)
   void refreshStatus($)
 }
@@ -287,6 +364,8 @@ export const register: Register = on => {
     const count = await read($, reviewed)
     const installed = await read($, isInstalled)
     const picking = await read($, isPicking)
+    const retiredRef = await read($, lastRetired)
+    const typingNow = v.phase === 'ask' && v.card?.kind !== 'lesson' && m === 'type' && Boolean(Input)
     const scopeName = v.scope ? v.courseTitle || v.scope : 'All courses'
     const rule = '─'.repeat(Math.max(8, Math.min(60, e.props.bodyColumns - 6)))
 
@@ -311,6 +390,12 @@ export const register: Register = on => {
         </Box>
         {v.isPractice && v.phase !== 'offline' ? (
           <Text color="suggestion">↻ Practice: nothing due, so you're reviewing what you're closest to forgetting</Text>
+        ) : null}
+        {retiredRef ? (
+          <Box gap={1}>
+            <Text dimColor>✓ Retired “{retiredRef.prompt}”</Text>
+            <Button key="undo" hotkey={typingNow ? undefined : 'u'} plain dimColor label="undo" onPress={() => undoRetire($)} />
+          </Box>
         ) : null}
         {e.props.isFocused ? null : (
           <Text color="warning" bold>
@@ -513,6 +598,66 @@ export const register: Register = on => {
       </Box>
     )
 
+    // Claude's explanation, inside the card, once asked for.
+    const explained = v.isExplaining ? (
+      <Box marginTop={1}>
+        <Text color="suggestion">Asking Claude…</Text>
+      </Box>
+    ) : v.explanation ? (
+      <Box marginTop={1} flexDirection="column">
+        <Text color="suggestion" bold>
+          WHY
+        </Text>
+        <Text>{v.explanation}</Text>
+      </Box>
+    ) : null
+
+    // A lesson: read it, then go straight to its quick check.
+    if (v.phase === 'ask' && card.kind === 'lesson') {
+      return (
+        <Box flexDirection="column">
+          {status}
+          {frame(
+            'suggestion',
+            <Box flexDirection="column">
+              <Box justifyContent="space-between">
+                <Text dimColor wrap="truncate-end">
+                  {where}
+                </Text>
+                <Text color="suggestion" bold>
+                  {' '}LESSON
+                </Text>
+              </Box>
+              <Box marginTop={1} flexDirection="column">
+                <Text color="suggestion" bold>
+                  {card.instruction.toUpperCase()}
+                </Text>
+                <Text bold size="title">
+                  {card.prompt}
+                </Text>
+              </Box>
+              <Box marginTop={1}>
+                <Text>{card.body}</Text>
+              </Box>
+              {card.example ? (
+                <Box marginTop={1} flexDirection="column">
+                  <Text italic>“{card.example}”</Text>
+                  {card.example_translation ? <Text dimColor italic>{card.example_translation}</Text> : null}
+                </Box>
+              ) : null}
+              {explained}
+            </Box>,
+          )}
+          <Box marginTop={1} gap={2}>
+            <Button key="got-it" hotkey="g" variant="primary" autoFocus label="got it → quick check" onPress={() => markRead($)} />
+            <Button key="explain" hotkey="e" plain dimColor label={v.isExplaining ? 'explaining…' : 'explain differently'} onPress={() => explain($)} />
+          </Box>
+          {controls(true)}
+          {footer('enter got it · e explain differently · esc back to Claude')}
+        </Box>
+      )
+    }
+
     if (v.phase === 'ask') {
       const typing = m === 'type' && Input
       return (
@@ -590,8 +735,13 @@ export const register: Register = on => {
                 {card.example_translation ? <Text dimColor italic>{card.example_translation}</Text> : null}
               </Box>
             ) : null}
+            {explained}
           </Box>,
         )}
+        <Box marginTop={1} gap={2}>
+          <Button key="explain" hotkey="e" plain dimColor label={v.isExplaining ? 'explaining…' : 'explain this'} onPress={() => explain($)} />
+          <Button key="retire" hotkey="k" plain dimColor label="I know this: don't show again" onPress={() => retire($)} />
+        </Box>
         <Box marginTop={1} gap={1} flexWrap="wrap">
           {grades.map(g => (
             <Button
@@ -608,7 +758,7 @@ export const register: Register = on => {
           ))}
         </Box>
         {controls(true)}
-        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · c courses · n learn more · esc back`)}
+        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · e why · k know it · esc back`)}
       </Box>
     )
   })

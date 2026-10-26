@@ -12,6 +12,7 @@ export type Card = {
   example?: string
   example_translation?: string
   self_grade?: boolean
+  body?: string
 }
 
 export type Check = {
@@ -29,6 +30,8 @@ export type View = {
   isNew: boolean
   isPractice: boolean
   noCourses: boolean
+  explanation: string
+  isExplaining: boolean
   scope: string
   focus: string
   courseTitle: string
@@ -40,6 +43,8 @@ export type View = {
 }
 
 export type Mode = 'type' | 'tap'
+
+export type RetiredRef = { id: string; prompt: string }
 
 export type CourseInfo = {
   id: string
@@ -61,6 +66,7 @@ declare module 'claude-code' {
       isInstalled: boolean
       isPicking: boolean
       courses: Shaped<CourseInfo[]>
+      lastRetired: Shaped<RetiredRef | null>
     }
   }
 }

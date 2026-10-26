@@ -20,6 +20,7 @@ const (
 	KindCloze     = "cloze"     // fill the blank
 	KindTransform = "transform" // rewrite the sentence
 	KindQA        = "qa"        // question → answer, any subject
+	KindLesson    = "lesson"    // a short explanation, read once before its cards
 )
 
 var defaultLabels = map[string]string{
@@ -28,6 +29,7 @@ var defaultLabels = map[string]string{
 	KindCloze:     "Fill in",
 	KindTransform: "Rewrite",
 	KindQA:        "Answer",
+	KindLesson:    "Learn",
 }
 
 type courseFile struct {
@@ -41,8 +43,18 @@ type courseFile struct {
 	Chars       []string          `json:"chars"`
 }
 
+// lessonItem is a micro-lesson: 40-80 words that introduce one idea before its cards.
+type lessonItem struct {
+	ID                 string `json:"id"`
+	Title              string `json:"title"`
+	Body               string `json:"body"`
+	Example            string `json:"example"`
+	ExampleTranslation string `json:"example_translation"`
+}
+
 type vocabItem struct {
 	ID                 string   `json:"id"`
+	Lesson             string   `json:"lesson"` // the lesson that introduces it, if any
 	Term               string   `json:"term"`
 	Meanings           []string `json:"meanings"`
 	Example            string   `json:"example"`
@@ -51,6 +63,7 @@ type vocabItem struct {
 
 type drill struct {
 	ID          string   `json:"id"`
+	Lesson      string   `json:"lesson"` // the lesson that introduces it, if any
 	Type        string   `json:"type"`
 	Prompt      string   `json:"prompt"`
 	Hint        string   `json:"hint"`
@@ -61,14 +74,15 @@ type drill struct {
 }
 
 type deckFile struct {
-	ID        string      `json:"id"`
-	Title     string      `json:"title"`
-	Subtitle  string      `json:"subtitle"`
-	Level     string      `json:"level"`
-	Focus     string      `json:"focus"`
-	FocusNote string      `json:"focus_note"`
-	Vocab     []vocabItem `json:"vocab"`
-	Drills    []drill     `json:"drills"`
+	ID        string       `json:"id"`
+	Title     string       `json:"title"`
+	Subtitle  string       `json:"subtitle"`
+	Level     string       `json:"level"`
+	Focus     string       `json:"focus"`
+	FocusNote string       `json:"focus_note"`
+	Lessons   []lessonItem `json:"lessons"`
+	Vocab     []vocabItem  `json:"vocab"`
+	Drills    []drill      `json:"drills"`
 }
 
 // Course is a set of units on one subject.
@@ -111,10 +125,16 @@ type Card struct {
 	Example     string   `json:"example,omitempty"`
 	ExampleTr   string   `json:"example_translation,omitempty"`
 	SelfGrade   bool     `json:"self_grade,omitempty"` // answer can't be auto-checked; the learner grades
+	Body        string   `json:"body,omitempty"`       // a lesson's text
 }
 
-// IsDrill reports whether the card is a drill rather than vocabulary (used by quizzes).
-func (c Card) IsDrill() bool { return c.Kind != KindRecognize && c.Kind != KindProduce }
+// IsDrill reports whether the card is a drill rather than vocabulary or a lesson (used by quizzes).
+func (c Card) IsDrill() bool {
+	return c.Kind != KindRecognize && c.Kind != KindProduce && c.Kind != KindLesson
+}
+
+// IsLesson reports whether the card is a lesson: read once, never graded or scheduled.
+func (c Card) IsLesson() bool { return c.Kind == KindLesson }
 
 // Lenient reports whether typed answers are checked leniently ("to apply" = "apply"):
 // true when the answer is a gloss in the learner's language.
@@ -264,7 +284,7 @@ func (l *Library) addUnit(course string, labels map[string]string, d deckFile) e
 	}
 	u := Unit{ID: d.ID, Course: course, Title: d.Title, Subtitle: d.Subtitle, Level: d.Level, Focus: d.Focus, FocusNote: d.FocusNote}
 	push := func(c Card) error {
-		if len(c.Answers) == 0 {
+		if len(c.Answers) == 0 && c.Kind != KindLesson {
 			return fmt.Errorf("card %q has no answers", c.ID)
 		}
 		c.Course, c.Unit, c.UnitTitle = course, d.ID, d.Title
@@ -273,6 +293,64 @@ func (l *Library) addUnit(course string, labels map[string]string, d deckFile) e
 		return nil
 	}
 
+	lessons := map[string]bool{}
+	for _, ls := range d.Lessons {
+		if ls.ID == "" || strings.TrimSpace(ls.Body) == "" {
+			return fmt.Errorf("lesson %q needs an id and a body", ls.ID)
+		}
+		lessons[ls.ID] = true
+	}
+	known := func(id, lesson string) error {
+		if lesson != "" && !lessons[lesson] {
+			return fmt.Errorf("card %q points to unknown lesson %q", id, lesson)
+		}
+		return nil
+	}
+
+	// Group vocab and drills by the lesson that introduces them ("" = none).
+	vocabOf, drillsOf := map[string][]vocabItem{}, map[string][]Card{}
+	for _, v := range d.Vocab {
+		if err := known(v.ID, v.Lesson); err != nil {
+			return err
+		}
+		vocabOf[v.Lesson] = append(vocabOf[v.Lesson], v)
+	}
+	for _, g := range d.Drills {
+		switch g.Type {
+		case KindCloze, KindTransform, KindQA:
+		default:
+			return fmt.Errorf("drill %q: unknown type %q", g.ID, g.Type)
+		}
+		if err := known(g.ID, g.Lesson); err != nil {
+			return err
+		}
+		drillsOf[g.Lesson] = append(drillsOf[g.Lesson], Card{ID: g.ID, Kind: g.Type, Instruction: labels[g.Type],
+			Prompt: g.Prompt, Hint: g.Hint, Answers: g.Answers, Translation: g.Translation, Note: g.Note, SelfGrade: g.SelfGrade})
+	}
+
+	// New-card order: each lesson, then the cards it introduces (its first drill works
+	// as the quick check); then the cards no lesson introduces.
+	var order []Card
+	for _, ls := range d.Lessons {
+		order = append(order, Card{ID: ls.ID, Kind: KindLesson, Instruction: labels[KindLesson], Prompt: ls.Title,
+			Body: ls.Body, Example: ls.Example, ExampleTr: ls.ExampleTranslation})
+		order = append(order, interleave(labels, vocabOf[ls.ID], drillsOf[ls.ID])...)
+	}
+	order = append(order, interleave(labels, vocabOf[""], drillsOf[""])...)
+	for _, c := range order {
+		if err := push(c); err != nil {
+			return err
+		}
+	}
+	l.Units = append(l.Units, u)
+	return nil
+}
+
+// interleave orders vocab and drills in small chunks so a day's new cards mix all kinds:
+// recognize chunk i, produce chunk i-1 (terms seen a little earlier), then a slice of
+// drills. Without vocab it's the drills in order; with no vocab before them, drills
+// lead, so a lesson's first drill comes right after the lesson.
+func interleave(labels map[string]string, vocab []vocabItem, drills []Card) []Card {
 	recognize := func(v vocabItem) Card {
 		return Card{ID: v.ID + ":r", Kind: KindRecognize, Instruction: labels[KindRecognize],
 			Prompt: v.Term, Answers: v.Meanings, Example: v.Example, ExampleTr: v.ExampleTranslation}
@@ -281,24 +359,10 @@ func (l *Library) addUnit(course string, labels map[string]string, d deckFile) e
 		return Card{ID: v.ID + ":p", Kind: KindProduce, Instruction: labels[KindProduce],
 			Prompt: strings.Join(v.Meanings, " / "), Answers: []string{v.Term}, Example: v.Example, ExampleTr: v.ExampleTranslation}
 	}
-	var drills []Card
-	for _, g := range d.Drills {
-		switch g.Type {
-		case KindCloze, KindTransform, KindQA:
-		default:
-			return fmt.Errorf("drill %q: unknown type %q", g.ID, g.Type)
-		}
-		drills = append(drills, Card{ID: g.ID, Kind: g.Type, Instruction: labels[g.Type], Prompt: g.Prompt, Hint: g.Hint,
-			Answers: g.Answers, Translation: g.Translation, Note: g.Note, SelfGrade: g.SelfGrade})
-	}
-
-	// New-card order interleaves small chunks so a day's new cards mix all kinds:
-	// recognize chunk i, produce chunk i-1 (terms seen a little earlier), then a slice
-	// of drills. A unit without vocab is just its drills in order.
 	const chunk = 5
 	var groups [][]vocabItem
-	for i := 0; i < len(d.Vocab); i += chunk {
-		groups = append(groups, d.Vocab[i:min(i+chunk, len(d.Vocab))])
+	for i := 0; i < len(vocab); i += chunk {
+		groups = append(groups, vocab[i:min(i+chunk, len(vocab))])
 	}
 	perGroup := 0
 	if len(groups) > 0 {
@@ -322,14 +386,7 @@ func (l *Library) addUnit(course string, labels map[string]string, d deckFile) e
 			order = append(order, produce(v))
 		}
 	}
-	order = append(order, drills...)
-	for _, c := range order {
-		if err := push(c); err != nil {
-			return err
-		}
-	}
-	l.Units = append(l.Units, u)
-	return nil
+	return append(order, drills...)
 }
 
 // CourseDirs lists the course folders directly under root.

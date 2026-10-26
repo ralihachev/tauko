@@ -76,12 +76,12 @@ func done() {
 `, bold, reset)
 	}
 	fmt.Printf(`
-%sDone.%s Start Claude Code and send a prompt: the tauko pane opens while Claude works.
+%sDone.%s Run %stauko claude%s and send a prompt: the tauko pane opens beside the chat while Claude works.
   /tauko         open the pane by hand (ctrl+x tab focuses it, Esc goes back)
   tauko          learn in the terminal
   %s  learn in the browser or on your phone
   tauko doctor   check the setup
-`, green+bold, reset, serverURL())
+`, green+bold, reset, bold, reset, serverURL())
 }
 
 // doctor checks every piece of the setup and says how to fix what's wrong.
@@ -159,6 +159,20 @@ func uninstall(args []string) error {
 		fmt.Printf("  Last step: delete the binary with `rm %s`\n", self)
 	}
 	return nil
+}
+
+// launchClaude replaces tauko with Claude Code in fullscreen mode, where the pane docks
+// beside the chat. Any flags go to claude unchanged.
+func launchClaude(args []string) error {
+	path, err := exec.LookPath("claude")
+	if err != nil {
+		return errors.New("Claude Code not found: install it from https://claude.com/claude-code")
+	}
+	if err := ensure(); err != nil {
+		warn("tauko server not running, so the pane will say so: " + err.Error())
+	}
+	env := append(os.Environ(), "CLAUDE_CODE_NO_FLICKER=1")
+	return syscall.Exec(path, append([]string{"claude"}, args...), env)
 }
 
 func claudeCLI(args ...string) (string, error) {

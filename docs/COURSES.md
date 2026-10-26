@@ -35,15 +35,21 @@ hand-checked ones to copy from.
   "subtitle": "Sending, receiving, closing",
   "level": "",
   "focus": "Nil and closed channels",
-  "focus_note": "Short explanation, shown on demand.",
+  "focus_note": "Short summary, shown on the course page.",
+  "lessons": [
+    // a micro-lesson, read once before the cards that point to it
+    { "id": "go-01-l1", "title": "Closed channels",
+      "body": "40-80 words that teach one idea, with a concrete example.",
+      "example": "v, ok := <-ch", "example_translation": "" }
+  ],
   "vocab": [
     // term ↔ meaning: each item becomes two cards (recognize and produce)
-    { "id": "go-01-v01", "term": "select", "meanings": ["wait on several channels"],
+    { "id": "go-01-v01", "lesson": "go-01-l1", "term": "select", "meanings": ["wait on several channels"],
       "example": "select { case v := <-in: … }", "example_translation": "" }
   ],
   "drills": [
     // type: cloze (one ___ in the prompt) | transform | qa
-    { "id": "go-01-q01", "type": "qa", "prompt": "What does a send on a nil channel do?",
+    { "id": "go-01-q01", "lesson": "go-01-l1", "type": "qa", "prompt": "What does a send on a nil channel do?",
       "answers": ["blocks forever"], "note": "Receives block forever too." },
     // self_grade: free-form answers the learner compares and grades; quizzes skip these
     { "id": "go-01-q02", "type": "qa", "prompt": "When is a buffered channel the right call?",
@@ -61,6 +67,22 @@ hand-checked ones to copy from.
 | `cloze` | drill | a sentence with `___` | answer = the missing word(s) |
 | `transform` | drill | an instruction + sentence | answer = the full rewritten sentence |
 | `qa` | drill | any question | answer = any of `answers`, or self-graded |
+| `lesson` | each `lessons` item | a 40-80 word explanation | not graded: read once ("got it"), never reviewed |
+
+## Lessons
+
+Cards are for remembering; lessons are for meeting an idea the first time. A lesson teaches **one
+idea in 40-80 words** (under 40 seconds to read) with one concrete example. Cards point to the lesson
+that teaches them with `"lesson": "<lesson id>"`, and the learner sees the lesson first, then its
+cards, easiest first: the first card is a quick check. Cards without a lesson come after.
+
+Lessons are read once and never come back for review. They stay on the course page for re-reading.
+A course without lessons works as before; add them when learners may meet the topic for the
+first time. `tauko gen` writes them for you.
+
+After answering any card (or on a lesson), **Explain** (`e`) asks Claude why the answer is what it
+is, for the answer the learner gave. It takes a few seconds, is cached per card and answer, and needs
+Claude Code installed.
 
 Typed answers ignore case, punctuation and extra spaces. A missing diacritic (ä → a) or one
 typo counts as *almost* and is graded Hard.

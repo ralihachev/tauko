@@ -14,8 +14,9 @@ const fakeCourse = "Here you go:\n```json\n" + `{
   "units": [{
     "title": "Services",
     "focus": "Stable names for moving pods",
+    "lessons": [{"title": "What a Service is", "body": "Pods come and go, so their IPs change. A Service gives a set of pods one stable name and virtual IP."}],
     "drills": [
-      {"type": "qa", "prompt": "Which Service type is reachable only inside the cluster?", "answers": ["ClusterIP"]},
+      {"lesson": 1, "type": "qa", "prompt": "Which Service type is reachable only inside the cluster?", "answers": ["ClusterIP"]},
       {"type": "cloze", "prompt": "kube-proxy programs ___ or IPVS rules on each node.", "hint": "the Linux packet filter", "answers": ["iptables"]}
     ]
   }]
@@ -60,6 +61,13 @@ func TestRunGenInstallsAVerifiedCourse(t *testing.T) {
 	if deck["id"] != "kubernetes-networking-u01" || drills[0].(map[string]any)["id"] != "kubernetes-networking-u01-q01" {
 		t.Errorf("IDs not assigned by tauko: %v", deck["id"])
 	}
+	lessons := deck["lessons"].([]any)
+	if lessons[0].(map[string]any)["id"] != "kubernetes-networking-u01-l01" || drills[0].(map[string]any)["lesson"] != "kubernetes-networking-u01-l01" {
+		t.Errorf("lesson not linked: %v / %v", lessons[0], drills[0])
+	}
+	if _, tagged := drills[1].(map[string]any)["lesson"]; tagged {
+		t.Errorf("an untagged card got a lesson")
+	}
 }
 
 func TestValidateRejectsBadCloze(t *testing.T) {
@@ -89,6 +97,7 @@ func TestSlug(t *testing.T) {
 	for in, want := range map[string]string{
 		"Kubernetes networking":    "kubernetes-networking",
 		"Suomi B2: verbien rektio": "suomi-b2-verbien-rektio",
+		"En la estación y el niño": "en-la-estacion-y-el-nino",
 		"   ":                      "course",
 	} {
 		if got := slug(in); got != want {
