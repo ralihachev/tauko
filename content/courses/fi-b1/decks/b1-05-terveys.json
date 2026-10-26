@@ -1,0 +1,428 @@
+{
+  "id": "b1-05",
+  "title": "Terveys ja hyvinvointi",
+  "subtitle": "Health",
+  "level": "B1",
+  "focus": "Konditionaali ja konditionaalin perfekti",
+  "focus_note": "The conditional ('would') adds -isi- to the strong verb stem before the personal ending: tulla → tulisin, tehdä → tekisin, liikkua → liikkuisit. A stem-final -e disappears and long vowels or diphthongs shorten: lukea → lukisin, saada → saisin, syödä → söisin. It is also used for polite requests: Voisitko auttaa?\nThe perfect conditional ('would have') = olla in the conditional + NUT participle: Olisin tullut, jos olisin tiennyt. Negative: en olisi tullut.",
+  "vocab": [
+    {
+      "id": "b1-05-v01",
+      "term": "terveyskeskus",
+      "meanings": [
+        "health centre",
+        "health center",
+        "clinic"
+      ],
+      "example": "Varasin ajan terveyskeskukseen ensi viikon maanantaiksi.",
+      "example_translation": "I booked an appointment at the health centre for next Monday."
+    },
+    {
+      "id": "b1-05-v02",
+      "term": "ajanvaraus",
+      "meanings": [
+        "appointment booking",
+        "booking",
+        "appointment"
+      ],
+      "example": "Ajanvaraus onnistuu myös verkossa tai puhelimitse.",
+      "example_translation": "Appointments can also be booked online or by phone."
+    },
+    {
+      "id": "b1-05-v03",
+      "term": "oire",
+      "meanings": [
+        "symptom"
+      ],
+      "example": "Mitä oireita sinulla on ollut viime päivinä?",
+      "example_translation": "What symptoms have you had in recent days?"
+    },
+    {
+      "id": "b1-05-v04",
+      "term": "kuume",
+      "meanings": [
+        "fever",
+        "temperature"
+      ],
+      "example": "Lapsella on ollut kuumetta kaksi päivää.",
+      "example_translation": "The child has had a fever for two days."
+    },
+    {
+      "id": "b1-05-v05",
+      "term": "yskä",
+      "meanings": [
+        "cough"
+      ],
+      "example": "Minulla on ollut paha yskä viikon.",
+      "example_translation": "I've had a bad cough for a week."
+    },
+    {
+      "id": "b1-05-v06",
+      "term": "särkeä",
+      "meanings": [
+        "ache",
+        "hurt"
+      ],
+      "example": "Päätäni on särkenyt koko päivän.",
+      "example_translation": "My head has been aching all day."
+    },
+    {
+      "id": "b1-05-v07",
+      "term": "kipeä",
+      "meanings": [
+        "sore",
+        "ill",
+        "sick",
+        "painful"
+      ],
+      "example": "Kurkkuni on ollut kipeä eilisestä asti.",
+      "example_translation": "My throat has been sore since yesterday."
+    },
+    {
+      "id": "b1-05-v08",
+      "term": "lääke",
+      "meanings": [
+        "medicine",
+        "medication",
+        "drug"
+      ],
+      "example": "Ota lääke aina ruoan kanssa kahdesti päivässä.",
+      "example_translation": "Always take the medicine with food twice a day."
+    },
+    {
+      "id": "b1-05-v09",
+      "term": "resepti",
+      "meanings": [
+        "prescription",
+        "recipe"
+      ],
+      "example": "Lääkäri kirjoitti minulle reseptin uuteen lääkkeeseen.",
+      "example_translation": "The doctor wrote me a prescription for a new medicine."
+    },
+    {
+      "id": "b1-05-v10",
+      "term": "sairastua",
+      "meanings": [
+        "fall ill",
+        "get sick",
+        "catch"
+      ],
+      "example": "Sairastuin flunssaan viime viikolla kesken loman.",
+      "example_translation": "I came down with the flu last week in the middle of my holiday."
+    },
+    {
+      "id": "b1-05-v11",
+      "term": "parantua",
+      "meanings": [
+        "recover",
+        "get better",
+        "heal"
+      ],
+      "example": "Toivottavasti parannut pian ja pääset taas töihin.",
+      "example_translation": "I hope you get better soon and can go back to work."
+    },
+    {
+      "id": "b1-05-v12",
+      "term": "levätä",
+      "meanings": [
+        "rest"
+      ],
+      "example": "Sinun pitäisi levätä muutama päivä.",
+      "example_translation": "You should rest for a few days."
+    },
+    {
+      "id": "b1-05-v13",
+      "term": "rokote",
+      "meanings": [
+        "vaccine",
+        "vaccination",
+        "jab"
+      ],
+      "example": "Kävin syksyllä ottamassa influenssarokotteen terveyskeskuksessa.",
+      "example_translation": "In the autumn I went to get a flu vaccine at the health centre."
+    },
+    {
+      "id": "b1-05-v14",
+      "term": "allergia",
+      "meanings": [
+        "allergy"
+      ],
+      "example": "Minulla on allergia kissoille ja koirille.",
+      "example_translation": "I have an allergy to cats and dogs."
+    },
+    {
+      "id": "b1-05-v15",
+      "term": "hyvinvointi",
+      "meanings": [
+        "well-being",
+        "wellbeing",
+        "wellness",
+        "welfare"
+      ],
+      "example": "Säännöllinen liikunta parantaa hyvinvointia monella tavalla.",
+      "example_translation": "Regular exercise improves well-being in many ways."
+    },
+    {
+      "id": "b1-05-v16",
+      "term": "liikunta",
+      "meanings": [
+        "exercise",
+        "physical activity",
+        "sport"
+      ],
+      "example": "Liikunta on tärkeä osa arkea.",
+      "example_translation": "Exercise is an important part of everyday life."
+    },
+    {
+      "id": "b1-05-v17",
+      "term": "ruokavalio",
+      "meanings": [
+        "diet"
+      ],
+      "example": "Noudatan terveellistä ruokavaliota lääkärin neuvosta.",
+      "example_translation": "I follow a healthy diet on the doctor's advice."
+    },
+    {
+      "id": "b1-05-v18",
+      "term": "stressi",
+      "meanings": [
+        "stress"
+      ],
+      "example": "Pitkäaikainen stressi vaikuttaa myös uneen ja mielialaan.",
+      "example_translation": "Long-term stress also affects sleep and mood."
+    },
+    {
+      "id": "b1-05-v19",
+      "term": "uupunut",
+      "meanings": [
+        "exhausted",
+        "burned out",
+        "worn out"
+      ],
+      "example": "Olen täysin uupunut pitkästä työviikosta.",
+      "example_translation": "I'm completely exhausted from the long work week."
+    },
+    {
+      "id": "b1-05-v20",
+      "term": "päivystys",
+      "meanings": [
+        "emergency department",
+        "emergency room",
+        "ER",
+        "A&E"
+      ],
+      "example": "Menimme yöllä päivystykseen, koska lapsella oli korkea kuume.",
+      "example_translation": "We went to the emergency department at night because the child had a high fever."
+    },
+    {
+      "id": "b1-05-v21",
+      "term": "tutkia",
+      "meanings": [
+        "examine",
+        "study",
+        "investigate"
+      ],
+      "example": "Lääkäri tutki potilaan huolellisesti ennen diagnoosia.",
+      "example_translation": "The doctor examined the patient carefully before the diagnosis."
+    },
+    {
+      "id": "b1-05-v22",
+      "term": "nyrjähtää",
+      "meanings": [
+        "sprain",
+        "twist"
+      ],
+      "example": "Nilkkani nyrjähti, kun juoksin portaissa.",
+      "example_translation": "I sprained my ankle when I was running on the stairs."
+    },
+    {
+      "id": "b1-05-v23",
+      "term": "terveellinen",
+      "meanings": [
+        "healthy",
+        "wholesome",
+        "healthful"
+      ],
+      "example": "Terveellinen ruoka antaa energiaa koko päiväksi.",
+      "example_translation": "Healthy food gives energy for the whole day."
+    },
+    {
+      "id": "b1-05-v24",
+      "term": "voida hyvin",
+      "meanings": [
+        "feel well",
+        "be well",
+        "be fine"
+      ],
+      "example": "Voin jo paljon paremmin kuin eilen.",
+      "example_translation": "I already feel much better than yesterday."
+    }
+  ],
+  "drills": [
+    {
+      "id": "b1-05-g01",
+      "type": "cloze",
+      "prompt": "Jos olisin sinä, ___ lääkäriin.",
+      "hint": "mennä → konditionaali, minä",
+      "answers": [
+        "menisin"
+      ],
+      "note": "mennä → menisin",
+      "translation": "If I were you, I would go to the doctor."
+    },
+    {
+      "id": "b1-05-g02",
+      "type": "cloze",
+      "prompt": "___ sinulla huomenna aikaa?",
+      "hint": "olla → konditionaali + -ko (sinulla on → ?)",
+      "answers": [
+        "Olisiko",
+        "olisiko"
+      ],
+      "note": "olla → olisi → olisiko",
+      "translation": "Would you have time tomorrow?"
+    },
+    {
+      "id": "b1-05-g03",
+      "type": "cloze",
+      "prompt": "Sinun ___ levätä enemmän.",
+      "hint": "pitää → konditionaali, hän-muoto",
+      "answers": [
+        "pitäisi"
+      ],
+      "note": "pitää → pitäisi ('should')",
+      "translation": "You should rest more."
+    },
+    {
+      "id": "b1-05-g04",
+      "type": "cloze",
+      "prompt": "Jos nukkuisin paremmin, en ___ niin väsynyt.",
+      "hint": "olla → konditionaali, kielteinen (en ...)",
+      "answers": [
+        "olisi"
+      ],
+      "note": "Negative conditional: en olisi",
+      "translation": "If I slept better, I wouldn't be so tired."
+    },
+    {
+      "id": "b1-05-g05",
+      "type": "cloze",
+      "prompt": "Jos ___ enemmän, voisit paremmin.",
+      "hint": "liikkua → konditionaali, sinä",
+      "answers": [
+        "liikkuisit"
+      ],
+      "note": "liikkua → liikkuisit (strong grade kk)",
+      "translation": "If you exercised more, you would feel better."
+    },
+    {
+      "id": "b1-05-g06",
+      "type": "cloze",
+      "prompt": "___ antaa minulle lasin vettä?",
+      "hint": "voida → konditionaali, sinä + kysymysliite -ko",
+      "answers": [
+        "Voisitko",
+        "voisitko"
+      ],
+      "note": "voida → voisit → voisitko (polite request)",
+      "translation": "Could you give me a glass of water?"
+    },
+    {
+      "id": "b1-05-g07",
+      "type": "cloze",
+      "prompt": "Hän ___ mielellään, mutta hänellä on kuumetta.",
+      "hint": "tulla → konditionaali, hän",
+      "answers": [
+        "tulisi"
+      ],
+      "note": "tulla → tulisi",
+      "translation": "She would gladly come, but she has a fever."
+    },
+    {
+      "id": "b1-05-g08",
+      "type": "cloze",
+      "prompt": "Jos olisin ottanut rokotteen, en olisi ___.",
+      "hint": "sairastua → NUT-partisiippi (konditionaalin perfekti)",
+      "answers": [
+        "sairastunut"
+      ],
+      "note": "en olisi + NUT participle: sairastunut",
+      "translation": "If I had taken the vaccine, I wouldn't have got sick."
+    },
+    {
+      "id": "b1-05-g09",
+      "type": "cloze",
+      "prompt": "Sinun ___ mennä lääkäriin jo eilen.",
+      "hint": "pitää → konditionaalin perfekti (olisi + NUT)",
+      "answers": [
+        "olisi pitänyt"
+      ],
+      "note": "olisi pitänyt = should have",
+      "translation": "You should have gone to the doctor already yesterday."
+    },
+    {
+      "id": "b1-05-g10",
+      "type": "cloze",
+      "prompt": "Jos ___ aikaisemmin, olisimme ehtineet junaan.",
+      "hint": "lähteä → konditionaalin perfekti, me",
+      "answers": [
+        "olisimme lähteneet"
+      ],
+      "note": "olisimme + plural NUT: lähteneet",
+      "translation": "If we had left earlier, we would have made it to the train."
+    },
+    {
+      "id": "b1-05-g11",
+      "type": "cloze",
+      "prompt": "Mitä sinä ___ minun tilanteessani?",
+      "hint": "tehdä → konditionaali, sinä",
+      "answers": [
+        "tekisit"
+      ],
+      "note": "tehdä → teke- → tekisit",
+      "translation": "What would you do in my situation?"
+    },
+    {
+      "id": "b1-05-g12",
+      "type": "cloze",
+      "prompt": "Lääkäri lupasi, että hän ___ minulle uuden lääkkeen.",
+      "hint": "määrätä → konditionaali, hän",
+      "answers": [
+        "määräisi"
+      ],
+      "note": "määrätä → määrää- → määräisi",
+      "translation": "The doctor promised that she would prescribe me a new medicine."
+    },
+    {
+      "id": "b1-05-g13",
+      "type": "transform",
+      "prompt": "Muuta konditionaaliin: Minä syön terveellisemmin.",
+      "answers": [
+        "Minä söisin terveellisemmin.",
+        "Söisin terveellisemmin."
+      ],
+      "note": "syödä → söisin (diphthong yö → ö)",
+      "translation": "I would eat more healthily."
+    },
+    {
+      "id": "b1-05-g14",
+      "type": "transform",
+      "prompt": "Muuta konditionaalin perfektiin: Hän menisi päivystykseen.",
+      "answers": [
+        "Hän olisi mennyt päivystykseen."
+      ],
+      "note": "menisi → olisi mennyt",
+      "translation": "He would have gone to the emergency room."
+    },
+    {
+      "id": "b1-05-g15",
+      "type": "transform",
+      "prompt": "Muuta kohteliaammaksi konditionaalilla: Voitko auttaa minua?",
+      "answers": [
+        "Voisitko auttaa minua?"
+      ],
+      "note": "voit → voisit",
+      "translation": "Could you help me?"
+    }
+  ]
+}

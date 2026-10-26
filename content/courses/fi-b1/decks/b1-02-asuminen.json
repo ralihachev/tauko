@@ -1,0 +1,429 @@
+{
+  "id": "b1-02",
+  "title": "Asuminen",
+  "subtitle": "Housing",
+  "level": "B1",
+  "focus": "Monikon partitiivi ja genetiivi",
+  "focus_note": "The plural partitive is used for indefinite plural amounts, after quantity words like paljon and vähän, in negative sentences and for plural partial objects. It is formed with the plural marker i/j + -a/-ä: tuoli → tuoleja, talo → taloja, huone → huoneita, uusi → uusia.\nThe plural genitive ('of the ...s') ends in -en, -den or -tten and often has two accepted forms: lapsi → lasten, asunto → asuntojen, naapuri → naapurien / naapureiden, asukas → asukkaiden / asukkaitten.\nExamples: Pihalla on puita. Lasten huone on pieni.",
+  "vocab": [
+    {
+      "id": "b1-02-v01",
+      "term": "vuokra",
+      "meanings": [
+        "rent"
+      ],
+      "example": "Vuokra maksetaan aina kuun ensimmäisenä päivänä.",
+      "example_translation": "The rent is always paid on the first day of the month."
+    },
+    {
+      "id": "b1-02-v02",
+      "term": "vuokrata",
+      "meanings": [
+        "rent",
+        "lease",
+        "hire"
+      ],
+      "example": "Vuokrasimme pienen kaksion läheltä keskustaa.",
+      "example_translation": "We rented a small two-room flat near the centre."
+    },
+    {
+      "id": "b1-02-v03",
+      "term": "vuokranantaja",
+      "meanings": [
+        "landlord",
+        "landlady",
+        "lessor"
+      ],
+      "example": "Vuokranantaja lupasi korjata vuotavan hanan ensi viikolla.",
+      "example_translation": "The landlord promised to fix the leaking tap next week."
+    },
+    {
+      "id": "b1-02-v04",
+      "term": "vuokralainen",
+      "meanings": [
+        "tenant",
+        "renter",
+        "lodger"
+      ],
+      "example": "Edellinen vuokralainen muutti pois kuukausi sitten.",
+      "example_translation": "The previous tenant moved out a month ago."
+    },
+    {
+      "id": "b1-02-v05",
+      "term": "omistusasunto",
+      "meanings": [
+        "owner-occupied home",
+        "owned home",
+        "own home"
+      ],
+      "example": "Moni suomalainen haluaa ostaa omistusasunnon.",
+      "example_translation": "Many Finns want to buy their own home."
+    },
+    {
+      "id": "b1-02-v06",
+      "term": "kerrostalo",
+      "meanings": [
+        "apartment building",
+        "block of flats"
+      ],
+      "example": "Asumme kahdeksankerroksisen kerrostalon viidennessä kerroksessa.",
+      "example_translation": "We live on the fifth floor of an eight-storey apartment building."
+    },
+    {
+      "id": "b1-02-v07",
+      "term": "rivitalo",
+      "meanings": [
+        "terraced house",
+        "row house",
+        "townhouse"
+      ],
+      "example": "Rivitalossa jokaisella asunnolla on oma piha.",
+      "example_translation": "In the row house every home has its own yard."
+    },
+    {
+      "id": "b1-02-v08",
+      "term": "omakotitalo",
+      "meanings": [
+        "detached house",
+        "single-family house",
+        "house"
+      ],
+      "example": "He rakensivat itse omakotitalon maalle.",
+      "example_translation": "They built a detached house in the countryside themselves."
+    },
+    {
+      "id": "b1-02-v09",
+      "term": "naapuri",
+      "meanings": [
+        "neighbour",
+        "neighbor"
+      ],
+      "example": "Naapurit soittavat musiikkia myöhään illalla.",
+      "example_translation": "The neighbours play music late in the evening."
+    },
+    {
+      "id": "b1-02-v10",
+      "term": "taloyhtiö",
+      "meanings": [
+        "housing company",
+        "housing cooperative"
+      ],
+      "example": "Taloyhtiö remontoi kylpyhuoneet ensi vuonna.",
+      "example_translation": "The housing company will renovate the bathrooms next year."
+    },
+    {
+      "id": "b1-02-v11",
+      "term": "isännöitsijä",
+      "meanings": [
+        "property manager",
+        "building manager"
+      ],
+      "example": "Ilmoita vuotavasta putkesta heti isännöitsijälle.",
+      "example_translation": "Report the leaking pipe to the property manager right away."
+    },
+    {
+      "id": "b1-02-v12",
+      "term": "muuttaa",
+      "meanings": [
+        "move",
+        "change"
+      ],
+      "example": "Muutimme uuteen asuntoon syyskuun alussa.",
+      "example_translation": "We moved into a new flat at the beginning of September."
+    },
+    {
+      "id": "b1-02-v13",
+      "term": "remontti",
+      "meanings": [
+        "renovation",
+        "refurbishment",
+        "repairs"
+      ],
+      "example": "Keittiön remontti kesti kaksi kuukautta.",
+      "example_translation": "The kitchen renovation took two months."
+    },
+    {
+      "id": "b1-02-v14",
+      "term": "sisustaa",
+      "meanings": [
+        "decorate",
+        "furnish"
+      ],
+      "example": "Sisustimme olohuoneen vaaleilla ja rauhallisilla väreillä.",
+      "example_translation": "We decorated the living room in light, calm colours."
+    },
+    {
+      "id": "b1-02-v15",
+      "term": "kalustettu",
+      "meanings": [
+        "furnished"
+      ],
+      "example": "Etsin kalustettua yksiötä keskustasta puoleksi vuodeksi.",
+      "example_translation": "I'm looking for a furnished studio in the centre for six months."
+    },
+    {
+      "id": "b1-02-v16",
+      "term": "vuokrasopimus",
+      "meanings": [
+        "lease",
+        "rental agreement",
+        "tenancy agreement"
+      ],
+      "example": "Allekirjoitin vuokrasopimuksen eilen vuokranantajan kanssa.",
+      "example_translation": "I signed the lease with the landlord yesterday."
+    },
+    {
+      "id": "b1-02-v17",
+      "term": "takuuvuokra",
+      "meanings": [
+        "security deposit",
+        "deposit",
+        "rent deposit"
+      ],
+      "example": "Takuuvuokra on kahden kuukauden vuokran suuruinen.",
+      "example_translation": "The deposit is the size of two months' rent."
+    },
+    {
+      "id": "b1-02-v18",
+      "term": "parveke",
+      "meanings": [
+        "balcony"
+      ],
+      "example": "Parvekkeelta on kaunis näkymä järvelle.",
+      "example_translation": "There is a beautiful view of the lake from the balcony."
+    },
+    {
+      "id": "b1-02-v19",
+      "term": "varasto",
+      "meanings": [
+        "storage room",
+        "storeroom",
+        "storage"
+      ],
+      "example": "Säilytämme polkupyöriä talvella kellarin varastossa.",
+      "example_translation": "In winter we keep the bicycles in the basement storage room."
+    },
+    {
+      "id": "b1-02-v20",
+      "term": "lämmitys",
+      "meanings": [
+        "heating"
+      ],
+      "example": "Vuokraan sisältyvät lämmitys ja vesi.",
+      "example_translation": "Heating and water are included in the rent."
+    },
+    {
+      "id": "b1-02-v21",
+      "term": "sähkösopimus",
+      "meanings": [
+        "electricity contract",
+        "power contract"
+      ],
+      "example": "Muista tehdä sähkösopimus ennen muuttoa.",
+      "example_translation": "Remember to make an electricity contract before the move."
+    },
+    {
+      "id": "b1-02-v22",
+      "term": "asuinalue",
+      "meanings": [
+        "residential area",
+        "neighbourhood",
+        "neighborhood"
+      ],
+      "example": "Asuinalue on rauhallinen ja vihreä.",
+      "example_translation": "The residential area is quiet and green."
+    },
+    {
+      "id": "b1-02-v23",
+      "term": "neliö",
+      "meanings": [
+        "square metre",
+        "square meter",
+        "square"
+      ],
+      "example": "Uudessa asunnossamme on 45 neliötä ja parveke.",
+      "example_translation": "Our new flat has 45 square metres and a balcony."
+    },
+    {
+      "id": "b1-02-v24",
+      "term": "muutto",
+      "meanings": [
+        "move",
+        "removal",
+        "relocation"
+      ],
+      "example": "Muutto uuteen kotiin sujui hyvin.",
+      "example_translation": "The move to the new home went well."
+    }
+  ],
+  "drills": [
+    {
+      "id": "b1-02-g01",
+      "type": "cloze",
+      "prompt": "Ostimme uuteen kotiin ___.",
+      "hint": "tuoli → monikon partitiivi",
+      "answers": [
+        "tuoleja"
+      ],
+      "note": "tuoli → tuoleja (i → e before the plural j)",
+      "translation": "We bought chairs for the new home."
+    },
+    {
+      "id": "b1-02-g02",
+      "type": "cloze",
+      "prompt": "Talossa asuu paljon ___.",
+      "hint": "lapsiperhe → monikon partitiivi",
+      "answers": [
+        "lapsiperheitä"
+      ],
+      "note": "perhe → perheitä",
+      "translation": "Many families with children live in the building."
+    },
+    {
+      "id": "b1-02-g03",
+      "type": "cloze",
+      "prompt": "Etsimme ___ asuntoja.",
+      "hint": "edullinen → monikon partitiivi",
+      "answers": [
+        "edullisia"
+      ],
+      "note": "edullinen → edullisia (-nen → -sia)",
+      "translation": "We are looking for affordable flats."
+    },
+    {
+      "id": "b1-02-g04",
+      "type": "cloze",
+      "prompt": "___ vanhemmat tulivat taloyhtiön kokoukseen.",
+      "hint": "lapsi → monikon genetiivi",
+      "answers": [
+        "Lasten",
+        "lasten"
+      ],
+      "note": "lapsi → lasten",
+      "translation": "The children's parents came to the housing company meeting."
+    },
+    {
+      "id": "b1-02-g05",
+      "type": "cloze",
+      "prompt": "Kokouksessa keskusteltiin ___ valituksista.",
+      "hint": "naapuri → monikon genetiivi",
+      "answers": [
+        "naapurien",
+        "naapureiden",
+        "naapureitten"
+      ],
+      "note": "naapuri → naapurien / naapureiden / naapureitten",
+      "translation": "The neighbours' complaints were discussed at the meeting."
+    },
+    {
+      "id": "b1-02-g06",
+      "type": "cloze",
+      "prompt": "Mikä on näiden ___ hinta?",
+      "hint": "asunto → monikon genetiivi",
+      "answers": [
+        "asuntojen"
+      ],
+      "note": "asunto → asuntojen",
+      "translation": "What is the price of these flats?"
+    },
+    {
+      "id": "b1-02-g07",
+      "type": "cloze",
+      "prompt": "Kaupungin ___ vuokrat ovat nousseet.",
+      "hint": "kaksio → monikon genetiivi",
+      "answers": [
+        "kaksioiden",
+        "kaksioitten"
+      ],
+      "note": "kaksio → kaksioiden / kaksioitten",
+      "translation": "Rents of two-room flats in the city have gone up."
+    },
+    {
+      "id": "b1-02-g08",
+      "type": "cloze",
+      "prompt": "Meillä ei ole ___.",
+      "hint": "matto → monikon partitiivi",
+      "answers": [
+        "mattoja"
+      ],
+      "note": "Negative sentence → partitive; matto → mattoja",
+      "translation": "We don't have rugs."
+    },
+    {
+      "id": "b1-02-g09",
+      "type": "cloze",
+      "prompt": "Parvekkeella on paljon ___.",
+      "hint": "kukka → monikon partitiivi",
+      "answers": [
+        "kukkia"
+      ],
+      "note": "kukka → kukkia (a drops before i)",
+      "translation": "There are a lot of flowers on the balcony."
+    },
+    {
+      "id": "b1-02-g10",
+      "type": "cloze",
+      "prompt": "Myyn ___ huonekaluja.",
+      "hint": "vanha → monikon partitiivi",
+      "answers": [
+        "vanhoja"
+      ],
+      "note": "vanha → vanhoja (a → o before i in two-syllable words)",
+      "translation": "I'm selling old furniture."
+    },
+    {
+      "id": "b1-02-g11",
+      "type": "cloze",
+      "prompt": "Tämä on ___ yhteinen sauna.",
+      "hint": "asukas → monikon genetiivi",
+      "answers": [
+        "asukkaiden",
+        "asukkaitten"
+      ],
+      "note": "asukas → asukkaiden / asukkaitten",
+      "translation": "This is the residents' shared sauna."
+    },
+    {
+      "id": "b1-02-g12",
+      "type": "cloze",
+      "prompt": "Remontin aikana kuului paljon ___ ääniä.",
+      "hint": "kova → monikon partitiivi",
+      "answers": [
+        "kovia"
+      ],
+      "note": "kova → kovia",
+      "translation": "There were a lot of loud noises during the renovation."
+    },
+    {
+      "id": "b1-02-g13",
+      "type": "transform",
+      "prompt": "Muuta monikon partitiiviin: Tarvitsen uuden lampun.",
+      "answers": [
+        "Tarvitsen uusia lamppuja."
+      ],
+      "note": "uusi → uusia, lamppu → lamppuja",
+      "translation": "I need new lamps."
+    },
+    {
+      "id": "b1-02-g14",
+      "type": "transform",
+      "prompt": "Muuta monikon genetiiviin: Huoneen ikkunat ovat isot.",
+      "answers": [
+        "Huoneiden ikkunat ovat isot.",
+        "Huoneitten ikkunat ovat isot."
+      ],
+      "note": "huone → huoneiden (also huoneitten)",
+      "translation": "The rooms' windows are big."
+    },
+    {
+      "id": "b1-02-g15",
+      "type": "transform",
+      "prompt": "Muuta monikkoon: Pihalla on puu.",
+      "answers": [
+        "Pihalla on puita."
+      ],
+      "note": "Existential sentence with an indefinite plural → partitive: puu → puita",
+      "translation": "There are trees in the yard."
+    }
+  ]
+}

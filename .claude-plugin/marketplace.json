@@ -1,0 +1,11 @@
+{
+  "name": "tauko",
+  "owner": { "name": "Roman Likhachev" },
+  "plugins": [
+    {
+      "name": "tauko",
+      "source": "./claude-mod",
+      "description": "Flashcards and quizzes in a pane beside the chat while Claude works"
+    }
+  ]
+}

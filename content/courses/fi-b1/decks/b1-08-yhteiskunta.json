@@ -1,0 +1,413 @@
+{
+  "id": "b1-08",
+  "title": "Suomalainen yhteiskunta",
+  "subtitle": "Finnish society",
+  "level": "B1",
+  "focus": "-minen-substantiivit ja possessiivisuffiksit",
+  "focus_note": "-minen turns a verb into a noun meaning 'the act of doing' (English -ing): oppia → oppiminen, äänestää → äänestäminen, tehdä → tekeminen. It uses the same strong stem as the 3rd infinitive and inflects like nainen: lukeminen, lukemisen, lukemista, lukemiseen.\nPossessive suffixes mark the owner: -ni (my), -si (your), -mme (our), -nne (your pl.), -nsa/-nsä or a long vowel + n (his/her/their): passini, kotimme, veljelleen. With 1st and 2nd person the pronoun is optional (minun kirjani = kirjani). In the 3rd person, Hän luki kirjansa means his own book, while Hän luki hänen kirjansa means someone else's.",
+  "vocab": [
+    {
+      "id": "b1-08-v01",
+      "term": "kansalainen",
+      "meanings": [
+        "citizen"
+      ],
+      "example": "Jokaisella täysi-ikäisellä kansalaisella on äänioikeus.",
+      "example_translation": "Every adult citizen has the right to vote."
+    },
+    {
+      "id": "b1-08-v02",
+      "term": "kansalaisuus",
+      "meanings": [
+        "citizenship",
+        "nationality"
+      ],
+      "example": "Hain Suomen kansalaisuutta viime vuonna.",
+      "example_translation": "I applied for Finnish citizenship last year."
+    },
+    {
+      "id": "b1-08-v03",
+      "term": "oleskelulupa",
+      "meanings": [
+        "residence permit"
+      ],
+      "example": "Oleskelulupa pitää uusia vuoden kuluttua.",
+      "example_translation": "The residence permit must be renewed in a year."
+    },
+    {
+      "id": "b1-08-v04",
+      "term": "viranomainen",
+      "meanings": [
+        "authority",
+        "official",
+        "authorities"
+      ],
+      "example": "Ota yhteyttä viranomaisiin ajoissa ennen muuttoa.",
+      "example_translation": "Contact the authorities in good time before the move."
+    },
+    {
+      "id": "b1-08-v05",
+      "term": "verotus",
+      "meanings": [
+        "taxation"
+      ],
+      "example": "Suomen verotus on progressiivinen eli tulojen mukaan nouseva.",
+      "example_translation": "Finnish taxation is progressive, i.e. it rises with income."
+    },
+    {
+      "id": "b1-08-v06",
+      "term": "verokortti",
+      "meanings": [
+        "tax card"
+      ],
+      "example": "Tilaa verokortti ennen työn aloittamista.",
+      "example_translation": "Order a tax card before starting work."
+    },
+    {
+      "id": "b1-08-v07",
+      "term": "äänestää",
+      "meanings": [
+        "vote"
+      ],
+      "example": "Äänestin kuntavaaleissa ensimmäistä kertaa viime keväänä.",
+      "example_translation": "Last spring I voted in the municipal elections for the first time."
+    },
+    {
+      "id": "b1-08-v08",
+      "term": "vaalit",
+      "meanings": [
+        "election",
+        "elections"
+      ],
+      "example": "Seuraavat eduskuntavaalit järjestetään Suomessa huhtikuussa.",
+      "example_translation": "The next parliamentary elections in Finland are held in April."
+    },
+    {
+      "id": "b1-08-v09",
+      "term": "eduskunta",
+      "meanings": [
+        "parliament"
+      ],
+      "example": "Eduskunta hyväksyi uuden lain pitkän keskustelun jälkeen.",
+      "example_translation": "Parliament approved the new law after a long debate."
+    },
+    {
+      "id": "b1-08-v10",
+      "term": "hallitus",
+      "meanings": [
+        "government",
+        "cabinet",
+        "board"
+      ],
+      "example": "Hallitus päätti leikata julkisia menoja ensi vuonna.",
+      "example_translation": "The government decided to cut public spending next year."
+    },
+    {
+      "id": "b1-08-v11",
+      "term": "kunta",
+      "meanings": [
+        "municipality",
+        "local authority"
+      ],
+      "example": "Kunta järjestää lasten päivähoidon ja peruskoulun.",
+      "example_translation": "The municipality organises childcare and basic education."
+    },
+    {
+      "id": "b1-08-v12",
+      "term": "hyvinvointivaltio",
+      "meanings": [
+        "welfare state"
+      ],
+      "example": "Suomi on tyypillinen pohjoismainen hyvinvointivaltio.",
+      "example_translation": "Finland is a typical Nordic welfare state."
+    },
+    {
+      "id": "b1-08-v13",
+      "term": "tasa-arvo",
+      "meanings": [
+        "equality"
+      ],
+      "example": "Tasa-arvo on suomalaisille tärkeä arvo.",
+      "example_translation": "Equality is an important value for Finns."
+    },
+    {
+      "id": "b1-08-v14",
+      "term": "sosiaaliturva",
+      "meanings": [
+        "social security",
+        "social welfare"
+      ],
+      "example": "Sosiaaliturva auttaa esimerkiksi työttömiä ja sairaita.",
+      "example_translation": "Social security helps, for example, the unemployed and the sick."
+    },
+    {
+      "id": "b1-08-v15",
+      "term": "maahanmuuttaja",
+      "meanings": [
+        "immigrant"
+      ],
+      "example": "Maahanmuuttajat voivat osallistua ilmaiseen kotoutumiskoulutukseen.",
+      "example_translation": "Immigrants can take part in free integration training."
+    },
+    {
+      "id": "b1-08-v16",
+      "term": "kotoutua",
+      "meanings": [
+        "integrate",
+        "settle in"
+      ],
+      "example": "Kielen oppiminen auttaa kotoutumaan uuteen maahan.",
+      "example_translation": "Learning the language helps you integrate into a new country."
+    },
+    {
+      "id": "b1-08-v17",
+      "term": "laki",
+      "meanings": [
+        "law",
+        "act"
+      ],
+      "example": "Uusi laki tuli voimaan tammikuussa.",
+      "example_translation": "The new law came into force in January."
+    },
+    {
+      "id": "b1-08-v18",
+      "term": "oikeus",
+      "meanings": [
+        "right",
+        "justice",
+        "court"
+      ],
+      "example": "Jokaisella lapsella on oikeus maksuttomaan koulutukseen.",
+      "example_translation": "Every child has the right to free education."
+    },
+    {
+      "id": "b1-08-v19",
+      "term": "velvollisuus",
+      "meanings": [
+        "duty",
+        "obligation",
+        "responsibility"
+      ],
+      "example": "Verojen maksaminen on kansalaisen velvollisuus.",
+      "example_translation": "Paying taxes is a citizen's duty."
+    },
+    {
+      "id": "b1-08-v20",
+      "term": "asioida",
+      "meanings": [
+        "deal with",
+        "do business",
+        "run errands"
+      ],
+      "example": "Voit asioida Kelan kanssa verkossa.",
+      "example_translation": "You can deal with Kela online."
+    },
+    {
+      "id": "b1-08-v21",
+      "term": "lomake",
+      "meanings": [
+        "form"
+      ],
+      "example": "Täytä lomake ja palauta se postitse.",
+      "example_translation": "Fill in the form and return it by post."
+    },
+    {
+      "id": "b1-08-v22",
+      "term": "henkilötunnus",
+      "meanings": [
+        "personal identity code",
+        "personal ID number",
+        "social security number"
+      ],
+      "example": "Tarvitset henkilötunnuksen esimerkiksi pankkitilin avaamiseen.",
+      "example_translation": "You need a personal identity code, for example, to open a bank account."
+    },
+    {
+      "id": "b1-08-v23",
+      "term": "päätös",
+      "meanings": [
+        "decision",
+        "ruling"
+      ],
+      "example": "Saat päätöksen kahden viikon kuluttua.",
+      "example_translation": "You will get the decision in two weeks."
+    },
+    {
+      "id": "b1-08-v24",
+      "term": "mielenosoitus",
+      "meanings": [
+        "demonstration",
+        "protest",
+        "rally"
+      ],
+      "example": "Torilla järjestettiin eilen suuri mielenosoitus.",
+      "example_translation": "A large demonstration was held in the square yesterday."
+    }
+  ],
+  "drills": [
+    {
+      "id": "b1-08-g01",
+      "type": "cloze",
+      "prompt": "Suomen kielen ___ on vaikeaa mutta hauskaa.",
+      "hint": "oppia → -minen-substantiivi",
+      "answers": [
+        "oppiminen"
+      ],
+      "note": "oppia → oppiminen",
+      "translation": "Learning Finnish is difficult but fun."
+    },
+    {
+      "id": "b1-08-g02",
+      "type": "cloze",
+      "prompt": "Pidän ___ ja kirjoittamisesta.",
+      "hint": "lukea → -minen, elatiivi",
+      "answers": [
+        "lukemisesta"
+      ],
+      "note": "pitää + elative: lukeminen → lukemisesta",
+      "translation": "I like reading and writing."
+    },
+    {
+      "id": "b1-08-g03",
+      "type": "cloze",
+      "prompt": "Lomakkeen ___ kesti tunnin.",
+      "hint": "täyttää → -minen",
+      "answers": [
+        "täyttäminen"
+      ],
+      "note": "täyttää → täyttäminen",
+      "translation": "Filling in the form took an hour."
+    },
+    {
+      "id": "b1-08-g04",
+      "type": "cloze",
+      "prompt": "Tarvitsen apua veroilmoituksen ___.",
+      "hint": "tehdä → -minen, illatiivi",
+      "answers": [
+        "tekemiseen"
+      ],
+      "note": "tehdä → tekeminen → tekemiseen",
+      "translation": "I need help with doing my tax return."
+    },
+    {
+      "id": "b1-08-g05",
+      "type": "cloze",
+      "prompt": "Asunnon ___ Helsingistä oli vaikeaa.",
+      "hint": "löytää → -minen",
+      "answers": [
+        "löytäminen"
+      ],
+      "note": "löytää → löytäminen",
+      "translation": "Finding a flat in Helsinki was difficult."
+    },
+    {
+      "id": "b1-08-g06",
+      "type": "cloze",
+      "prompt": "Hän on kyllästynyt ___.",
+      "hint": "odottaa → -minen, illatiivi (kyllästynyt + mihin)",
+      "answers": [
+        "odottamiseen"
+      ],
+      "note": "kyllästyä + illative: odottaminen → odottamiseen",
+      "translation": "He is fed up with waiting."
+    },
+    {
+      "id": "b1-08-g07",
+      "type": "cloze",
+      "prompt": "Unohdin ___ kotiin.",
+      "hint": "passi → minun + possessiivisuffiksi",
+      "answers": [
+        "passini"
+      ],
+      "note": "passi + -ni → passini",
+      "translation": "I forgot my passport at home."
+    },
+    {
+      "id": "b1-08-g08",
+      "type": "cloze",
+      "prompt": "Onko tämä ___?",
+      "hint": "lompakko → sinun + possessiivisuffiksi",
+      "answers": [
+        "lompakkosi"
+      ],
+      "note": "lompakko + -si → lompakkosi (strong grade kk)",
+      "translation": "Is this your wallet?"
+    },
+    {
+      "id": "b1-08-g09",
+      "type": "cloze",
+      "prompt": "He asuvat vielä ___ kanssa.",
+      "hint": "vanhemmat → monikon genetiivi + 3. persoonan possessiivisuffiksi",
+      "answers": [
+        "vanhempiensa"
+      ],
+      "note": "vanhempien + -nsa → vanhempiensa (the genitive -n drops)",
+      "translation": "They still live with their parents."
+    },
+    {
+      "id": "b1-08-g10",
+      "type": "cloze",
+      "prompt": "Hän soitti eilen ___.",
+      "hint": "veli → allatiivi + 3. persoonan possessiivisuffiksi",
+      "answers": [
+        "veljelleen"
+      ],
+      "note": "veljelle + -en → veljelleen",
+      "translation": "She called her brother yesterday."
+    },
+    {
+      "id": "b1-08-g11",
+      "type": "cloze",
+      "prompt": "Missä ___ on?",
+      "hint": "auto → teidän + possessiivisuffiksi",
+      "answers": [
+        "autonne"
+      ],
+      "note": "auto + -nne → autonne",
+      "translation": "Where is your car? (plural/formal)"
+    },
+    {
+      "id": "b1-08-g12",
+      "type": "cloze",
+      "prompt": "Muutimme viime kuussa ___.",
+      "hint": "uusi koti → illatiivi + meidän possessiivisuffiksi",
+      "answers": [
+        "uuteen kotiimme"
+      ],
+      "note": "uuteen kotiin + -mme → uuteen kotiimme (the illative -n drops)",
+      "translation": "Last month we moved into our new home."
+    },
+    {
+      "id": "b1-08-g13",
+      "type": "transform",
+      "prompt": "Muuta -minen-substantiiviksi: On tärkeää äänestää.",
+      "answers": [
+        "Äänestäminen on tärkeää."
+      ],
+      "note": "äänestää → äänestäminen",
+      "translation": "Voting is important."
+    },
+    {
+      "id": "b1-08-g14",
+      "type": "transform",
+      "prompt": "Lisää possessiivisuffiksi: Minun kotikaupunki on Tampere.",
+      "answers": [
+        "Minun kotikaupunkini on Tampere.",
+        "Kotikaupunkini on Tampere."
+      ],
+      "note": "kotikaupunki + -ni → kotikaupunkini",
+      "translation": "My hometown is Tampere."
+    },
+    {
+      "id": "b1-08-g15",
+      "type": "transform",
+      "prompt": "Muuta monikkoon: Minun ystäväni asuu Turussa.",
+      "answers": [
+        "Minun ystäväni asuvat Turussa.",
+        "Ystäväni asuvat Turussa."
+      ],
+      "note": "ystäväni can be singular or plural; only the verb shows the number",
+      "translation": "My friends live in Turku."
+    }
+  ]
+}

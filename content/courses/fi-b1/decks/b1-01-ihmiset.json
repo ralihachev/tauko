@@ -1,0 +1,429 @@
+{
+  "id": "b1-01",
+  "title": "Ihmiset ja ihmissuhteet",
+  "subtitle": "People & relationships",
+  "level": "B1",
+  "focus": "Komparatiivi ja superlatiivi",
+  "focus_note": "The comparative ('-er/more') adds -mpi to the adjective's vowel stem; in other cases the stem is -mma-/-mpa-: iso → isompi, isomman, isompaa. Two-syllable adjectives ending in -a/-ä change it to -e: vanha → vanhempi, kylmä → kylmempi. The superlative ('-est/most') adds -in (stem -imma-/-impa-) and drops the final a/ä: vanha → vanhin, vanhimmassa. Compare with kuin + nominative or with the partitive before the adjective: Eero on vanhempi kuin Anna = Eero on Annaa vanhempi.\nIrregular: hyvä → parempi → paras. Adverbs take -mmin: hitaasti → hitaammin.",
+  "vocab": [
+    {
+      "id": "b1-01-v01",
+      "term": "luotettava",
+      "meanings": [
+        "reliable",
+        "trustworthy",
+        "dependable"
+      ],
+      "example": "Tarvitsemme tiimiin luotettavan ja kokeneen ihmisen.",
+      "example_translation": "We need a reliable and experienced person on the team."
+    },
+    {
+      "id": "b1-01-v02",
+      "term": "ystävällinen",
+      "meanings": [
+        "friendly",
+        "kind"
+      ],
+      "example": "Uusi naapurimme on todella ystävällinen.",
+      "example_translation": "Our new neighbour is really friendly."
+    },
+    {
+      "id": "b1-01-v03",
+      "term": "ujo",
+      "meanings": [
+        "shy",
+        "timid"
+      ],
+      "example": "Lapsena olin melko ujo ja hiljainen.",
+      "example_translation": "As a child I was quite shy and quiet."
+    },
+    {
+      "id": "b1-01-v04",
+      "term": "sosiaalinen",
+      "meanings": [
+        "sociable",
+        "social",
+        "outgoing"
+      ],
+      "example": "Siskoni on paljon sosiaalisempi kuin minä.",
+      "example_translation": "My sister is much more sociable than me."
+    },
+    {
+      "id": "b1-01-v05",
+      "term": "kärsivällinen",
+      "meanings": [
+        "patient"
+      ],
+      "example": "Pienten lasten opettajan täytyy olla kärsivällinen.",
+      "example_translation": "A teacher of small children has to be patient."
+    },
+    {
+      "id": "b1-01-v06",
+      "term": "itsepäinen",
+      "meanings": [
+        "stubborn",
+        "obstinate",
+        "headstrong"
+      ],
+      "example": "Isoisäni on itsepäinen eikä muuta mieltään.",
+      "example_translation": "My grandfather is stubborn and doesn't change his mind."
+    },
+    {
+      "id": "b1-01-v07",
+      "term": "rehellinen",
+      "meanings": [
+        "honest"
+      ],
+      "example": "Haluan, että olet minulle rehellinen.",
+      "example_translation": "I want you to be honest with me."
+    },
+    {
+      "id": "b1-01-v08",
+      "term": "luonne",
+      "meanings": [
+        "character",
+        "personality",
+        "temperament"
+      ],
+      "example": "Hänellä on rauhallinen luonne, eikä hän suutu helposti.",
+      "example_translation": "He has a calm character and doesn't get angry easily."
+    },
+    {
+      "id": "b1-01-v09",
+      "term": "ihmissuhde",
+      "meanings": [
+        "relationship",
+        "human relationship"
+      ],
+      "example": "Hyvät ihmissuhteet ovat tärkeitä hyvinvoinnille.",
+      "example_translation": "Good relationships are important for well-being."
+    },
+    {
+      "id": "b1-01-v10",
+      "term": "sukulainen",
+      "meanings": [
+        "relative",
+        "relation"
+      ],
+      "example": "Jouluna tapaamme kaikki sukulaiset isovanhempien luona.",
+      "example_translation": "At Christmas we meet all our relatives at our grandparents' place."
+    },
+    {
+      "id": "b1-01-v11",
+      "term": "puoliso",
+      "meanings": [
+        "spouse",
+        "partner",
+        "husband",
+        "wife"
+      ],
+      "example": "Puolisoni työskentelee sairaanhoitajana Tampereen yliopistollisessa sairaalassa.",
+      "example_translation": "My spouse works as a nurse at Tampere University Hospital."
+    },
+    {
+      "id": "b1-01-v12",
+      "term": "seurustella",
+      "meanings": [
+        "date",
+        "go out with",
+        "be in a relationship"
+      ],
+      "example": "He ovat seurustelleet kaksi vuotta.",
+      "example_translation": "They have been dating for two years."
+    },
+    {
+      "id": "b1-01-v13",
+      "term": "erota",
+      "meanings": [
+        "divorce",
+        "break up",
+        "separate",
+        "resign"
+      ],
+      "example": "Vanhempani erosivat, kun olin kymmenen.",
+      "example_translation": "My parents divorced when I was ten."
+    },
+    {
+      "id": "b1-01-v14",
+      "term": "riidellä",
+      "meanings": [
+        "argue",
+        "quarrel",
+        "fight"
+      ],
+      "example": "Veljekset riitelevät usein pienistä asioista.",
+      "example_translation": "The brothers often argue about small things."
+    },
+    {
+      "id": "b1-01-v15",
+      "term": "sopia",
+      "meanings": [
+        "agree",
+        "make up",
+        "settle",
+        "fit"
+      ],
+      "example": "Riidan jälkeen he sopivat ja halasivat toisiaan.",
+      "example_translation": "After the quarrel they made up and hugged each other."
+    },
+    {
+      "id": "b1-01-v16",
+      "term": "tutustua",
+      "meanings": [
+        "get to know",
+        "become acquainted",
+        "familiarize oneself"
+      ],
+      "example": "Haluaisin tutustua uusiin ihmisiin täällä Suomessa.",
+      "example_translation": "I would like to get to know new people here in Finland."
+    },
+    {
+      "id": "b1-01-v17",
+      "term": "luottaa",
+      "meanings": [
+        "trust",
+        "rely on",
+        "count on"
+      ],
+      "example": "Voit aina luottaa minuun, mitä tahansa tapahtuu.",
+      "example_translation": "You can always trust me, whatever happens."
+    },
+    {
+      "id": "b1-01-v18",
+      "term": "kaivata",
+      "meanings": [
+        "miss",
+        "long for",
+        "need"
+      ],
+      "example": "Kaipaan perhettäni, joka asuu ulkomailla.",
+      "example_translation": "I miss my family, who live abroad."
+    },
+    {
+      "id": "b1-01-v19",
+      "term": "ystävyys",
+      "meanings": [
+        "friendship"
+      ],
+      "example": "Heidän ystävyytensä on kestänyt kolmekymmentä vuotta.",
+      "example_translation": "Their friendship has lasted thirty years."
+    },
+    {
+      "id": "b1-01-v20",
+      "term": "tuttava",
+      "meanings": [
+        "acquaintance"
+      ],
+      "example": "Hän ei ole ystävä vaan pelkkä tuttava.",
+      "example_translation": "He isn't a friend, just an acquaintance."
+    },
+    {
+      "id": "b1-01-v21",
+      "term": "naimisissa",
+      "meanings": [
+        "married"
+      ],
+      "example": "Olemme olleet naimisissa viisi vuotta.",
+      "example_translation": "We have been married for five years."
+    },
+    {
+      "id": "b1-01-v22",
+      "term": "tulla toimeen",
+      "meanings": [
+        "get along",
+        "get on",
+        "manage"
+      ],
+      "example": "Tulen hyvin toimeen työkavereideni kanssa.",
+      "example_translation": "I get along well with my colleagues."
+    },
+    {
+      "id": "b1-01-v23",
+      "term": "huolehtia",
+      "meanings": [
+        "take care of",
+        "look after",
+        "worry"
+      ],
+      "example": "Huolehdin äidistäni, kun hän on sairas.",
+      "example_translation": "I look after my mother when she is ill."
+    },
+    {
+      "id": "b1-01-v24",
+      "term": "samanlainen",
+      "meanings": [
+        "similar",
+        "alike",
+        "the same kind"
+      ],
+      "example": "Olemme veljeni kanssa hyvin samanlaisia.",
+      "example_translation": "My brother and I are very similar."
+    }
+  ],
+  "drills": [
+    {
+      "id": "b1-01-g01",
+      "type": "cloze",
+      "prompt": "Pekka on ___ kuin veljensä.",
+      "hint": "pitkä → komparatiivi",
+      "answers": [
+        "pidempi",
+        "pitempi"
+      ],
+      "note": "pitkä → pidempi (also pitempi)",
+      "translation": "Pekka is taller than his brother."
+    },
+    {
+      "id": "b1-01-g02",
+      "type": "cloze",
+      "prompt": "Tämä tehtävä on ___ kuin edellinen.",
+      "hint": "helppo → komparatiivi",
+      "answers": [
+        "helpompi"
+      ],
+      "note": "helppo → helpompi (strong grade pp before -mpi)",
+      "translation": "This task is easier than the previous one."
+    },
+    {
+      "id": "b1-01-g03",
+      "type": "cloze",
+      "prompt": "Siskoni on perheen ___.",
+      "hint": "nuori → superlatiivi",
+      "answers": [
+        "nuorin"
+      ],
+      "note": "nuori → nuorempi → nuorin",
+      "translation": "My sister is the youngest in the family."
+    },
+    {
+      "id": "b1-01-g04",
+      "type": "cloze",
+      "prompt": "Asumme nyt ___ asunnossa kuin ennen.",
+      "hint": "iso → komparatiivi, inessiivi",
+      "answers": [
+        "isommassa"
+      ],
+      "note": "isompi → isomman → isommassa (stem -mma- in weak grade)",
+      "translation": "We now live in a bigger flat than before."
+    },
+    {
+      "id": "b1-01-g05",
+      "type": "cloze",
+      "prompt": "Hän on ___ ihminen, jonka tunnen.",
+      "hint": "rehellinen → superlatiivi",
+      "answers": [
+        "rehellisin"
+      ],
+      "note": "rehellinen → rehellisempi → rehellisin",
+      "translation": "He is the most honest person I know."
+    },
+    {
+      "id": "b1-01-g06",
+      "type": "cloze",
+      "prompt": "Tänään on vuoden ___ päivä.",
+      "hint": "kylmä → superlatiivi",
+      "answers": [
+        "kylmin"
+      ],
+      "note": "kylmä → kylmempi → kylmin",
+      "translation": "Today is the coldest day of the year."
+    },
+    {
+      "id": "b1-01-g07",
+      "type": "cloze",
+      "prompt": "Aja ___, tie on liukas.",
+      "hint": "hidas → komparatiivin adverbi (-mmin)",
+      "answers": [
+        "hitaammin"
+      ],
+      "note": "hidas → hitaampi → hitaammin",
+      "translation": "Drive more slowly, the road is slippery."
+    },
+    {
+      "id": "b1-01-g08",
+      "type": "cloze",
+      "prompt": "Matti on ryhmän ___ opiskelija.",
+      "hint": "ahkera → superlatiivi",
+      "answers": [
+        "ahkerin"
+      ],
+      "note": "ahkera → ahkerampi → ahkerin",
+      "translation": "Matti is the most hard-working student in the group."
+    },
+    {
+      "id": "b1-01-g09",
+      "type": "cloze",
+      "prompt": "Tämä on ___ kirja, jonka olen lukenut.",
+      "hint": "hyvä → superlatiivi",
+      "answers": [
+        "paras"
+      ],
+      "note": "hyvä → parempi → paras (irregular)",
+      "translation": "This is the best book I have read."
+    },
+    {
+      "id": "b1-01-g10",
+      "type": "cloze",
+      "prompt": "Sinun ideasi on ___ kuin minun.",
+      "hint": "hyvä → komparatiivi",
+      "answers": [
+        "parempi"
+      ],
+      "note": "hyvä → parempi (irregular)",
+      "translation": "Your idea is better than mine."
+    },
+    {
+      "id": "b1-01-g11",
+      "type": "cloze",
+      "prompt": "Etsimme ___ asuntoa.",
+      "hint": "halpa → komparatiivi, partitiivi",
+      "answers": [
+        "halvempaa"
+      ],
+      "note": "halpa → halvempi → partitive halvempaa",
+      "translation": "We are looking for a cheaper flat."
+    },
+    {
+      "id": "b1-01-g12",
+      "type": "cloze",
+      "prompt": "Isovanhempani asuvat kaupungin ___ talossa.",
+      "hint": "vanha → superlatiivi, inessiivi",
+      "answers": [
+        "vanhimmassa"
+      ],
+      "note": "vanhin → vanhimman → vanhimmassa",
+      "translation": "My grandparents live in the oldest house in town."
+    },
+    {
+      "id": "b1-01-g13",
+      "type": "transform",
+      "prompt": "Muuta superlatiiviin: Tämä on hyvä ravintola.",
+      "answers": [
+        "Tämä on paras ravintola."
+      ],
+      "note": "hyvä → paras (irregular)",
+      "translation": "This is the best restaurant."
+    },
+    {
+      "id": "b1-01-g14",
+      "type": "transform",
+      "prompt": "Muuta komparatiiviin: Tämä talo on kallis.",
+      "answers": [
+        "Tämä talo on kalliimpi."
+      ],
+      "note": "kallis (stem kallii-) → kalliimpi",
+      "translation": "This house is more expensive."
+    },
+    {
+      "id": "b1-01-g15",
+      "type": "transform",
+      "prompt": "Vertaa sanalla vanha: Eero on 30-vuotias. Anna on 25-vuotias.",
+      "answers": [
+        "Eero on vanhempi kuin Anna.",
+        "Eero on Annaa vanhempi."
+      ],
+      "note": "vanha → vanhempi; kuin + nominative, or partitive before the comparative (Annaa vanhempi)",
+      "translation": "Eero is older than Anna."
+    }
+  ]
+}

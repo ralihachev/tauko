@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "~/go/bin/tauko ensure", "timeout": 5 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "~/go/bin/tauko signal busy", "timeout": 2 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "~/go/bin/tauko signal idle", "timeout": 2 }] }],
+    "Notification": [{ "hooks": [{ "type": "command", "command": "~/go/bin/tauko signal idle", "timeout": 2 }] }]
+  },
+  "statusLine": { "type": "command", "command": "~/go/bin/tauko status" }
+}

@@ -1,0 +1,5 @@
+/tauko
+*.db
+*.db-*
+.DS_Store
+claude-mod/.claude-plugin/types/
