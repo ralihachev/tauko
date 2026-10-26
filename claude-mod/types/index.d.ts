@@ -28,6 +28,7 @@ export type View = {
   card: Card | null
   isNew: boolean
   isPractice: boolean
+  noCourses: boolean
   scope: string
   focus: string
   courseTitle: string

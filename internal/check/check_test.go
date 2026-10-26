@@ -22,6 +22,10 @@ func TestAnswer(t *testing.T) {
 		{"take care", []string{"(to) take care of"}, true, Wrong}, // missing "of" is more than a typo
 		{"take care of", []string{"(to) take care of"}, true, Correct},
 		{"ja", []string{"jo"}, false, Wrong}, // short words get no typo tolerance
+		{"espanol", []string{"español"}, false, Close},
+		{"cafe creme", []string{"café crème"}, false, Close},
+		{"strasse", []string{"straße"}, false, Close},
+		{"café", []string{"café"}, false, Correct},
 	}
 	for _, tt := range tests {
 		if got := Answer(tt.given, tt.accepted, tt.english); got.Verdict != tt.want {

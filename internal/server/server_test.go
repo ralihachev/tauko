@@ -100,6 +100,23 @@ func TestCoursesAndQuiz(t *testing.T) {
 	}
 }
 
+func TestNoCourses(t *testing.T) {
+	lib, err := content.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	var next nextResponse
+	call(t, New(lib, st, Config{}).Handler(fstest.MapFS{}), "GET", "/api/next", "", &next)
+	if next.Card != nil || !next.NoCourses {
+		t.Errorf("empty library: %+v", next)
+	}
+}
+
 func review(t *testing.T, h http.Handler, id string) {
 	t.Helper()
 	call(t, h, "POST", "/api/review", `{"card_id": "`+id+`", "rating": 4, "mode": "tap"}`, nil)

@@ -104,6 +104,7 @@ type nextResponse struct {
 	CourseTitle string        `json:"course_title,omitempty"`
 	Chars       []string      `json:"chars,omitempty"`
 	Scope       string        `json:"scope"` // the course being studied; "" = all courses
+	NoCourses   bool          `json:"no_courses,omitempty"` // nothing installed yet
 }
 
 // practiceGap keeps a just-practiced card from coming straight back in practice mode.
@@ -148,7 +149,7 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course}
+	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course, NoCourses: len(s.lib.Courses) == 0}
 	for _, c := range due {
 		if c.ID != exclude {
 			resp.Card = &c

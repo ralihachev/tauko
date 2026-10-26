@@ -1,12 +1,12 @@
 # Writing a course
 
-A course is a folder of JSON files. No code changes are needed: drop the folder into
-`~/.tauko/courses/`, run `tauko restart`, and it shows up in every client. Courses shipped with
-tauko live in `content/courses/` in this repo; [examples/courses](../examples/courses) has a small
-one to copy from.
+A course is a folder of JSON files in `~/.tauko/courses/`. No code changes are needed: add the
+folder, run `tauko restart`, and it shows up in every client. The quickest start is
+`tauko gen "topic"`, which writes one for you; [examples/courses](../examples/courses) has
+hand-checked ones to copy from.
 
 ```
-~/.tauko/courses/<course>/          (or content/courses/<course>/ in the repo)
+~/.tauko/courses/<course>/          (or examples/courses/<course>/ for the gallery)
   course.json
   decks/01-<unit>.json, 02-<unit>.json, …    one file per unit, in order
 ```
@@ -71,7 +71,7 @@ typo counts as *almost* and is graded Hard.
   card's text freely, but never reuse an ID for a different card.
 - **List every correct answer.** `answers[0]` is shown as the canonical one; add alternatives
   (other word orders, variant spellings) so typed answers are judged fairly.
-- **Make cloze hints unambiguous.** `"hint": "pitkä → comparative"` leaves exactly one right answer.
+- **Make cloze hints unambiguous.** `"hint": "the upper bound, a number"` leaves exactly one right answer.
 - **Original content only.** Don't paste text or exercises from books or paid courses; follow their
   topics and level, write your own sentences.
 
@@ -79,8 +79,8 @@ typo counts as *almost* and is graded Hard.
 
 ```sh
 tauko restart                                      # reload ~/.tauko/courses
-make test                                          # validates every course in content/ and examples/
-tauko serve -courses content/courses -db /tmp/dev.db   # serve the repo's courses from disk
+make test                                          # validates every gallery course
+tauko serve -courses examples/courses -db /tmp/dev.db  # serve the gallery from disk
 ```
 
 A course with an error (bad JSON, a duplicate ID) is skipped and the rest keep working.

@@ -1,0 +1,98 @@
+{
+  "drills": [
+    {
+      "answers": [
+        "ClusterIP",
+        "Cluster IP"
+      ],
+      "hint": "one word",
+      "id": "kubernetes-networking-u01-q01",
+      "note": "ClusterIP is the default and is reachable only from inside the cluster.",
+      "prompt": "Which Service type do you get if you don't set spec.type?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "32767"
+      ],
+      "hint": "upper bound of the default NodePort range (a number)",
+      "id": "kubernetes-networking-u01-q02",
+      "note": "The default range is 30000-32767. The API server flag --service-node-port-range can change it.",
+      "prompt": "By default, NodePort Services get a port in the range 30000-___.",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "cluster.local",
+        "cluster.local."
+      ],
+      "hint": "the default cluster domain",
+      "id": "kubernetes-networking-u01-q03",
+      "note": "The pattern is <service>.<namespace>.svc.<cluster-domain>.",
+      "prompt": "With the default cluster domain, Service 'api' in namespace 'shop' resolves at api.shop.svc.___",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "targetPort",
+        "spec.ports.targetPort",
+        "spec.ports[].targetPort"
+      ],
+      "hint": "one field name",
+      "id": "kubernetes-networking-u01-q04",
+      "note": "'port' is the port the Service exposes. 'targetPort' is the port on the pod it forwards to.",
+      "prompt": "Which field in a Service port entry sets the port the container actually listens on?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "ExternalName",
+        "External Name"
+      ],
+      "hint": "one word",
+      "id": "kubernetes-networking-u01-q05",
+      "note": "ExternalName only works at the DNS level. No proxying or virtual IP is involved.",
+      "prompt": "Which Service type has no selector and makes DNS return a CNAME to an external hostname?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "The pod's resolv.conf has search domains such as shop.svc.cluster.local, so the short name 'api' is expanded to api.shop.svc.cluster.local."
+      ],
+      "hint": "think about /etc/resolv.conf",
+      "id": "kubernetes-networking-u01-q06",
+      "note": "With the default dnsPolicy ClusterFirst, the kubelet adds namespace-based search domains to every pod's resolv.conf.",
+      "prompt": "Explain why a pod in namespace 'shop' can reach Service 'api' using just the name 'api'.",
+      "self_grade": true,
+      "type": "qa"
+    }
+  ],
+  "focus": "Stable names for changing pods",
+  "focus_note": "Pods come and go and their IPs change, so clients talk to a Service instead. The Service's selector matches pod labels, and kube-proxy (or a replacement in the CNI plugin) forwards traffic from the Service's virtual IP to the matching pods. Cluster DNS adds a name for each Service. For example, Service 'api' in namespace 'shop' resolves at api.shop.svc.cluster.local.",
+  "id": "kubernetes-networking-u01",
+  "level": "intermediate",
+  "subtitle": "Stable addresses for changing pods",
+  "title": "Services and Cluster DNS",
+  "vocab": [
+    {
+      "example": "The backend Service is a ClusterIP, so only pods in the cluster can call it.",
+      "example_translation": "The Service gets an internal virtual IP and is not exposed outside the cluster.",
+      "id": "kubernetes-networking-u01-v01",
+      "meanings": [
+        "virtual IP reachable only inside the cluster",
+        "default Service type"
+      ],
+      "term": "ClusterIP"
+    },
+    {
+      "example": "The StatefulSet uses a headless Service so each database pod gets its own DNS record.",
+      "example_translation": "No virtual IP is allocated. DNS returns the individual pod addresses instead.",
+      "id": "kubernetes-networking-u01-v02",
+      "meanings": [
+        "Service with clusterIP: None",
+        "Service whose DNS returns pod IPs directly"
+      ],
+      "term": "headless Service"
+    }
+  ]
+}

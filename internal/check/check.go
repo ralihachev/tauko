@@ -41,7 +41,7 @@ func Answer(given string, accepted []string, english bool) Result {
 				return Result{Verdict: Correct, Expected: a}
 			}
 			if fold(g) == fold(variant) {
-				best = Result{Verdict: Close, Expected: a, Reason: "check ä/ö"}
+				best = Result{Verdict: Close, Expected: a, Reason: "check the accents"}
 				bestDist = 0
 				continue
 			}
@@ -119,9 +119,22 @@ func normalize(s string, english bool) string {
 	return s
 }
 
-func fold(s string) string {
-	return strings.NewReplacer("ä", "a", "ö", "o", "å", "a").Replace(s)
-}
+// accents maps letters with diacritics to their base letters, so "cafe" for "café" or
+// "espanol" for "español" counts as almost right, in any Latin-script language.
+var accents = strings.NewReplacer(
+	"à", "a", "á", "a", "â", "a", "ã", "a", "ä", "a", "å", "a", "ā", "a", "ą", "a",
+	"ç", "c", "ć", "c", "č", "c", "ď", "d", "đ", "d",
+	"è", "e", "é", "e", "ê", "e", "ë", "e", "ē", "e", "ę", "e", "ě", "e",
+	"ì", "i", "í", "i", "î", "i", "ï", "i", "ī", "i", "ł", "l", "ľ", "l",
+	"ñ", "n", "ń", "n", "ň", "n",
+	"ò", "o", "ó", "o", "ô", "o", "õ", "o", "ö", "o", "ø", "o", "ō", "o", "ő", "o",
+	"ř", "r", "ś", "s", "š", "s", "ş", "s", "ß", "ss", "ť", "t",
+	"ù", "u", "ú", "u", "û", "u", "ü", "u", "ū", "u", "ů", "u", "ű", "u",
+	"ý", "y", "ÿ", "y", "ź", "z", "ż", "z", "ž", "z",
+	"æ", "ae", "œ", "oe",
+)
+
+func fold(s string) string { return accents.Replace(s) }
 
 func levenshtein(a, b string) int {
 	ra, rb := []rune(a), []rune(b)

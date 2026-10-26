@@ -14,4 +14,4 @@ run: build
 
 # Serve courses from disk so content edits apply on restart without rebuilding.
 dev: build
-	./tauko serve -courses content/courses -db /tmp/tauko-dev.db
+	./tauko serve -courses examples/courses -db /tmp/tauko-dev.db

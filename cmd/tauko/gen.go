@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	shipped "github.com/ralihachev/tauko/content"
 	"github.com/ralihachev/tauko/internal/content"
 )
 
@@ -124,6 +123,7 @@ func gen(args []string) error {
 	model := fl.String("model", "", "Claude model to use (default: Claude Code's default)")
 	yes := fl.Bool("y", false, "install without asking")
 	dry := fl.Bool("dry-run", false, "show the course, don't install it")
+	dir := fl.String("dir", filepath.Join(dataDir(), "courses"), "install into this folder (e.g. examples/courses when contributing)")
 	fl.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: tauko gen [flags] \"topic\"\n\nGenerates a course with Claude Code (claude -p), verifies every answer, and installs it.\n\nflags:")
 		fl.PrintDefaults()
@@ -139,9 +139,16 @@ func gen(args []string) error {
 	}
 	return runGen(context.Background(), claudeGenerator(*model), genOptions{
 		Topic: topic, Level: *level, Units: *units, Cards: *cards, From: *from, ID: *id,
-		Lang: *lang, Yes: *yes, DryRun: *dry, Dir: filepath.Join(dataDir(), "courses"),
-		Restart: restartServer,
+		Lang: *lang, Yes: *yes, DryRun: *dry, Dir: *dir, Restart: restartIfDefault(*dir),
 	})
+}
+
+// restartIfDefault reloads the server only when dir is the folder it serves.
+func restartIfDefault(dir string) func() error {
+	if abs, _ := filepath.Abs(dir); abs != filepath.Join(dataDir(), "courses") {
+		return nil
+	}
+	return restartServer
 }
 
 // restartServer reloads courses by restarting the local server.
@@ -361,7 +368,7 @@ func validateCourse(dir, courseID string, files map[string][]byte) error {
 	if err := writeCourse(filepath.Join(tmp, courseID), files); err != nil {
 		return err
 	}
-	sources := []content.Source{{FS: shipped.Courses, Root: "courses"}, {FS: os.DirFS(tmp), Root: "."}}
+	sources := []content.Source{{FS: os.DirFS(tmp), Root: "."}}
 	if _, err := os.Stat(dir); err == nil {
 		sources = append(sources, content.Source{FS: os.DirFS(dir), Root: "."})
 	}

@@ -232,3 +232,15 @@ test('the course picker sets the active course and +10 new asks the server', asy
   expect(posts.at(-1)).toEqual({ url: 'http://127.0.0.1:8787/api/more', body: { n: 10 } })
   await ui.unmount()
 })
+
+test('with no courses installed, the pane says how to get one', async ($, on) => {
+  on('http.fetch', () => json({ card: null, is_new: false, due: 0, new_left: 20, scope: '', no_courses: true }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.prompt.submit({ text: 'x' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /NO COURSES YET/ }))?.text).toBe('NO COURSES YET')
+  expect((await ui.find({ type: 'Text', text: /tauko gen/ }))?.text).toContain('Kubernetes networking')
+  await ui.unmount()
+})

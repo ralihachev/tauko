@@ -68,6 +68,13 @@ func setup(args []string) error {
 }
 
 func done() {
+	if dirs, _ := os.ReadDir(filepath.Join(dataDir(), "courses")); len(dirs) == 0 {
+		fmt.Printf(`
+%sNext: get a course.%s
+  tauko gen "Kubernetes networking"   generate one about anything with Claude
+  tauko add                           browse the gallery (tauko add go-concurrency)
+`, bold, reset)
+	}
 	fmt.Printf(`
 %sDone.%s Start Claude Code and send a prompt: the tauko pane opens while Claude works.
   /tauko         open the pane by hand (ctrl+x tab focuses it, Esc goes back)

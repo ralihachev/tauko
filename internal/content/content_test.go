@@ -1,17 +1,20 @@
 package content
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"testing/fstest"
-
-	shipped "github.com/ralihachev/tauko/content"
 )
 
-// TestShippedCourses validates the embedded content, so a broken deck fails the build.
-func TestShippedCourses(t *testing.T) {
-	lib, err := Load(shipped.Courses, "courses")
+// examples is the public course gallery (examples/courses), validated so a broken
+// course fails CI.
+var examples = Source{FS: os.DirFS("../../examples/courses"), Root: "."}
+
+// TestExampleCourses validates every course in the gallery.
+func TestExampleCourses(t *testing.T) {
+	lib, err := LoadAll(examples)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +47,16 @@ func TestShippedCourses(t *testing.T) {
 // TestOrderInterleaves checks that a unit's first cards mix kinds rather than
 // front-loading all recognition cards.
 func TestOrderInterleaves(t *testing.T) {
-	lib, err := Load(shipped.Courses, "courses")
+	var vocab, drills []string
+	for i := 1; i <= 15; i++ {
+		vocab = append(vocab, fmt.Sprintf(`{"id": "v%d", "term": "t%d", "meanings": ["m%d"]}`, i, i, i))
+		drills = append(drills, fmt.Sprintf(`{"id": "q%d", "type": "qa", "prompt": "p%d", "answers": ["a"]}`, i, i))
+	}
+	deck := fmt.Sprintf(`{"id": "u1", "title": "U", "vocab": [%s], "drills": [%s]}`, strings.Join(vocab, ","), strings.Join(drills, ","))
+	lib, err := Load(fstest.MapFS{
+		"c/x/course.json":   {Data: []byte(`{"id": "x", "title": "X"}`)},
+		"c/x/decks/01.json": {Data: []byte(deck)},
+	}, "c")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,13 +64,10 @@ func TestOrderInterleaves(t *testing.T) {
 	for _, c := range lib.Cards[:20] {
 		kinds[c.Kind] = true
 	}
-	for _, k := range []string{KindRecognize, KindProduce} {
+	for _, k := range []string{KindRecognize, KindProduce, KindQA} {
 		if !kinds[k] {
 			t.Errorf("first 20 new cards contain no %s cards", k)
 		}
-	}
-	if !kinds[KindCloze] && !kinds[KindTransform] {
-		t.Error("first 20 new cards contain no drills")
 	}
 }
 
@@ -99,30 +108,6 @@ func TestDuplicateIDsAcrossCourses(t *testing.T) {
 	}
 	if _, err := Load(fsys, "c"); err == nil || !strings.Contains(err.Error(), "duplicate") {
 		t.Errorf("Load = %v, want duplicate id error", err)
-	}
-}
-
-// TestExampleCourses validates examples/courses and checks they load next to the
-// built-in courses without ID clashes, as they do from ~/.tauko/courses.
-func TestExampleCourses(t *testing.T) {
-	lib, err := LoadAll(Source{FS: shipped.Courses, Root: "courses"}, Source{FS: os.DirFS("../../examples/courses"), Root: "."})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ex, ok := lib.Course("go-concurrency")
-	if !ok || len(ex.UnitIDs) == 0 {
-		t.Fatalf("example course not loaded: %+v", ex)
-	}
-	for _, c := range lib.Cards {
-		if c.Course != "go-concurrency" {
-			continue
-		}
-		if c.Kind == KindCloze && strings.Count(c.Prompt, "___") != 1 {
-			t.Errorf("%s: cloze needs exactly one ___", c.ID)
-		}
-		if c.Instruction == "" || len(c.Answers) == 0 {
-			t.Errorf("%s: missing instruction or answers", c.ID)
-		}
 	}
 }
 

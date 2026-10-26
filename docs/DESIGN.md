@@ -10,7 +10,7 @@ attention that leaves nothing behind. tauko fills those gaps with **active recal
 passive scrolling.
 
 tauko is subject-agnostic: a **course** is a folder of content, and the engine, scheduler and
-clients know nothing about any one subject. The first course is Finnish B1 because that's what its
+clients know nothing about any one subject. The project started with a Finnish course because that's what its
 author is studying. The next ones could be anything: another language, a certification, a
 codebase.
 
@@ -49,7 +49,7 @@ Card kinds:
 |---|---|---|
 | `recognize` | each `vocab` item | luotettava → *reliable* |
 | `produce` | each `vocab` item | reliable → *luotettava* |
-| `cloze` | drill | Pekka on ___ kuin veljensä. (pitkä) → *pidempi* |
+| `cloze` | drill | NodePort Services get a port in 30000-___. → *32767* |
 | `transform` | drill | Rewrite in the passive: … → *…* |
 | `qa` | drill | What does a send on a nil channel do? → *blocks forever* |
 
@@ -57,32 +57,17 @@ Card kinds:
 everything else. A drill with `self_grade: true` has no checkable answer (explain, compare,
 design), so the learner grades it and quizzes skip it.
 
-Courses live in `content/courses/<course>/` and are embedded into the binary. Card IDs are stable
-and unique across all courses, so review history survives content edits.
-
-### Course 1: Finnish B1 (`fi-b1`)
-
-- Follows the topic and grammar sequence of *Suomen mestari 3*. The content is **original**: it
-  doesn't reproduce the book's texts, word lists or exercises. That's required for a product and
-  makes the content ours to extend.
-
-| Unit | Topic | Grammar |
-|---|---|---|
-| 01 | Ihmiset ja ihmissuhteet | komparatiivi & superlatiivi |
-| 02 | Asuminen | monikon partitiivi & genetiivi |
-| 03 | Työ ja työelämä | passiivin preesens & imperfekti |
-| 04 | Opiskelu | verbien rektio, 3. infinitiivi |
-| 05 | Terveys ja hyvinvointi | konditionaali & konditionaalin perfekti |
-| 06 | Luonto ja ympäristö | relatiivipronominit joka & mikä |
-| 07 | Media ja uutiset | partisiipit (VA, NUT, agentti) |
-| 08 | Suomalainen yhteiskunta | -minen-substantiivit, possessiivisuffiksit |
+Courses live in `~/.tauko/courses/<course>/`; nothing is built into the binary. They get there
+three ways: `tauko gen` (Claude drafts, a second pass verifies, tauko validates), `tauko add`
+(the public gallery in `examples/courses`), or by hand. Card IDs are stable and unique across
+all courses, so review history survives content edits.
 
 ## Architecture
 
 ```
             ┌──────────────── tauko serve (Go, single binary) ────────────────┐
             │  HTTP API  ──  scheduler (FSRS v5)  ──  SQLite (~/.tauko/tauko.db) │
-            │  embedded courses (content/courses/), embedded PWA (web/)       │
+            │  courses (~/.tauko/courses/), embedded PWA (web/)              │
             └───────▲───────────────▲───────────────▲───────────────▲──────────┘
                     │               │               │               │
          tauko learn / quiz     browser PWA      phone PWA     tauko signal busy|idle
@@ -93,7 +78,7 @@ and unique across all courses, so review history survives content edits.
 - **Card selection:** due cards first (oldest due first), then new cards up to a daily
   new-card limit (default 20), in unit order.
 - **Answer checking** (`internal/check`): case/punctuation/whitespace-insensitive. Missing
-  diacritics (ä/ö/å) or a single typo is a near miss: shown as correct-ish and graded *Hard*.
+  accents (é, ñ, ä, ø, …) or a single typo is a near miss: shown as correct-ish and graded *Hard*.
 - **Busy signal:** hooks POST to `/api/signal`. Clients show "Claude is working, your
   turn" or "✓ Claude finished, back to work".
 - **Auth:** none on localhost. If `TAUKO_TOKEN` is set, every API call needs it
@@ -114,7 +99,7 @@ Content is not in the DB. A card without a `card_state` row is *new*.
 
 ## Roadmap
 
-**v0.1 (now):** course-agnostic engine, FSRS, Finnish B1 course (8 units), terminal client
+**v0.1:** course-agnostic engine, FSRS, first course (8 units), terminal client
 (tap/type/quiz), PWA, Claude Code pane plugin, hooks, status line, auto-start.
 
 **v0.2: reach**
@@ -126,7 +111,7 @@ Content is not in the DB. A card without a `card_state` row is *new*.
 - *Diff quizzes*: a course generated live from the code Claude just wrote (fights deskilling)
 - Import from Anki decks / CSV
 - Listening cards (TTS) and dictation for language courses
-- More courses: Finnish B2 / YKI prep, a second language, a certification
+- More gallery courses: languages, certifications, popular tools
 
 **Product (if it works for me)**
 - Multi-user accounts, sync, hosted

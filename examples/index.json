@@ -1,0 +1,14 @@
+[
+  {
+    "id": "go-concurrency",
+    "title": "Go concurrency",
+    "description": "Channels, select, sync and context: the rules that bite in production, one gap at a time.",
+    "cards": 20
+  },
+  {
+    "id": "kubernetes-networking",
+    "title": "Kubernetes networking",
+    "description": "After this course you can choose the right Service type, predict cluster DNS names, route HTTP traffic with Ingress, and lock down pod traffic with NetworkPolicies.",
+    "cards": 20
+  }
+]

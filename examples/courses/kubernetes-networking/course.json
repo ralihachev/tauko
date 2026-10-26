@@ -1,0 +1,7 @@
+{
+  "description": "After this course you can choose the right Service type, predict cluster DNS names, route HTTP traffic with Ingress, and lock down pod traffic with NetworkPolicies.",
+  "focus_label": "Concept",
+  "id": "kubernetes-networking",
+  "subject": "programming",
+  "title": "Kubernetes networking"
+}

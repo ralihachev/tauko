@@ -115,8 +115,8 @@ func (c *client) line(prompt string) (string, bool) {
 func learn(args []string) error {
 	fl := flag.NewFlagSet("learn", flag.ExitOnError)
 	mode := fl.String("mode", "type", "tap (recall + self-grade) or type (typed, auto-checked)")
-	course := fl.String("course", "", "restrict to one course, e.g. fi-b1")
-	unit := fl.String("unit", "", "restrict to one unit, e.g. b1-03")
+	course := fl.String("course", "", "restrict to one course, e.g. go-concurrency")
+	unit := fl.String("unit", "", "restrict to one unit, e.g. goc-01")
 	fl.Parse(args)
 	if *mode != "tap" && *mode != "type" {
 		return fmt.Errorf("mode must be tap or type")
@@ -127,13 +127,14 @@ func learn(args []string) error {
 	last, lastSignal := "", c.signal()
 	for n := 0; ; n++ {
 		var next struct {
-			Card     *card      `json:"card"`
-			IsNew    bool       `json:"is_new"`
-			Practice bool       `json:"practice"`
-			Due      int        `json:"due"`
-			NewLeft  int        `json:"new_left"`
-			NextDue  *time.Time `json:"next_due"`
-			Focus    string     `json:"focus"`
+			Card      *card      `json:"card"`
+			IsNew     bool       `json:"is_new"`
+			Practice  bool       `json:"practice"`
+			NoCourses bool       `json:"no_courses"`
+			Due       int        `json:"due"`
+			NewLeft   int        `json:"new_left"`
+			NextDue   *time.Time `json:"next_due"`
+			Focus     string     `json:"focus"`
 		}
 		q := "/api/next?exclude=" + url.QueryEscape(last)
 		if *course != "" {
@@ -144,6 +145,10 @@ func learn(args []string) error {
 		}
 		if err := c.do("GET", q, nil, &next); err != nil {
 			return err
+		}
+		if next.Card == nil && next.NoCourses {
+			fmt.Printf("No courses yet. Make one: %stauko gen \"topic\"%s, or pick one from the gallery: %stauko add%s\n", bold, reset, bold, reset)
+			return nil
 		}
 		if next.Card == nil {
 			fmt.Printf("\n%s✓ All done!%s Nothing due", green+bold, reset)
@@ -275,8 +280,8 @@ func (c *client) signal() signalState {
 
 func quiz(args []string) error {
 	fl := flag.NewFlagSet("quiz", flag.ExitOnError)
-	course := fl.String("course", "", "course id, e.g. fi-b1 (empty = all courses)")
-	unit := fl.String("unit", "", "unit id, e.g. b1-03 (empty = whole course)")
+	course := fl.String("course", "", "course id, e.g. go-concurrency (empty = all courses)")
+	unit := fl.String("unit", "", "unit id (empty = whole course)")
 	n := fl.Int("n", 10, "number of questions")
 	fl.Parse(args)
 
@@ -518,6 +523,6 @@ func more(args []string) error {
 	if err := newClient(5*time.Second).do("POST", "/api/more", map[string]int{"n": n}, &res); err != nil {
 		return err
 	}
-	ok(fmt.Sprintf("%d new cards left today", res.NewLeft))
+	ok(fmt.Sprintf("%d unseen cards from your courses unlocked for today", res.NewLeft))
 	return nil
 }

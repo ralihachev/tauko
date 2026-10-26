@@ -15,6 +15,7 @@ const EMPTY: View = {
   card: null,
   isNew: false,
   isPractice: false,
+  noCourses: false,
   scope: '',
   focus: '',
   courseTitle: '',
@@ -26,7 +27,7 @@ const EMPTY: View = {
 }
 
 // Change the tag when View's fields change: it declines what an earlier version stored.
-const view = atom({ plugin: 'tauko', key: 'view' } as const, EMPTY, { shape: 'view-3' })
+const view = atom({ plugin: 'tauko', key: 'view' } as const, EMPTY, { shape: 'view-4' })
 const isBusy = atom({ plugin: 'tauko', key: 'isBusy' } as const, false)
 const mode = atom({ plugin: 'tauko', key: 'mode' } as const, 'type' as Mode)
 const lastId = atom({ plugin: 'tauko', key: 'lastId' } as const, '')
@@ -39,6 +40,7 @@ type NextResponse = {
   card: Card | null
   is_new: boolean
   practice?: boolean
+  no_courses?: boolean
   scope?: string
   due: number
   new_left: number
@@ -65,7 +67,7 @@ async function loadNext($: EngineInterface): Promise<void> {
     const next = await api<NextResponse>($, 'GET', '/api/next?exclude=' + encodeURIComponent(exclude))
     if (!next.card) {
       const when = next.next_due ? relTime(next.next_due) : ''
-      await update($, view, () => ({ ...EMPTY, phase: 'empty' as const, message: when }))
+      await update($, view, () => ({ ...EMPTY, phase: 'empty' as const, message: when, noCourses: next.no_courses ?? false }))
       return
     }
     const card = next.card
@@ -329,7 +331,7 @@ export const register: Register = on => {
     const controls = (hot: boolean) => (
       <Box marginTop={1} gap={2} flexWrap="wrap">
         <Button key="courses" hotkey={hot ? 'c' : undefined} plain dimColor label={hot ? 'courses' : 'courses (tab)'} onPress={() => openPicker($)} />
-        <Button key="more" hotkey={hot ? 'n' : undefined} plain dimColor label="+10 new cards" onPress={() => moreNew($)} />
+        <Button key="more" hotkey={hot ? 'n' : undefined} plain dimColor label="learn 10 more today" onPress={() => moreNew($)} />
         {Input ? (
           <Button
             key="mode"
@@ -428,6 +430,31 @@ export const register: Register = on => {
       )
     }
 
+    if (v.phase === 'empty' && v.noCourses) {
+      return (
+        <Box flexDirection="column">
+          {status}
+          {frame(
+            'suggestion',
+            <Box flexDirection="column" gap={1}>
+              <Text color="suggestion" bold>
+                NO COURSES YET
+              </Text>
+              <Text>Make one about anything, in a terminal:</Text>
+              <Text color="success">  tauko gen "Kubernetes networking"</Text>
+              <Text>or install one from the gallery:</Text>
+              <Text color="success">  tauko add            (list)</Text>
+              <Text color="success">  tauko add go-concurrency</Text>
+            </Box>,
+          )}
+          <Box marginTop={1}>
+            <Button key="refresh" hotkey="r" plain dimColor label="check again" onPress={() => loadNext($)} />
+          </Box>
+          {footer('r check again · esc back to Claude')}
+        </Box>
+      )
+    }
+
     if (v.phase === 'empty' || !v.card) {
       return (
         <Box flexDirection="column">
@@ -442,7 +469,7 @@ export const register: Register = on => {
             </Box>,
           )}
           {controls(true)}
-          {footer('n +10 new cards · c another course')}
+          {footer('n learn 10 more today · c another course')}
         </Box>
       )
     }
@@ -507,7 +534,7 @@ export const register: Register = on => {
             )}
           </Box>
           {controls(!typing)}
-          {footer(typing ? 'enter check · esc back to Claude' : 'enter reveal · c courses · n new · esc back')}
+          {footer(typing ? 'enter check · esc back to Claude' : 'enter reveal · c courses · n learn more · esc back')}
         </Box>
       )
     }
@@ -581,7 +608,7 @@ export const register: Register = on => {
           ))}
         </Box>
         {controls(true)}
-        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · c courses · n new · esc back`)}
+        {footer(`enter ${grades[suggested - 1]?.label ?? 'Good'} · 1–4 grade · c courses · n learn more · esc back`)}
       </Box>
     )
   })

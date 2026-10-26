@@ -84,7 +84,7 @@ async function renderScope() {
     .concat(courses.map((c) => `<option value="${esc(c.id)}">${esc(c.title)} · ${c.seen}/${c.total}</option>`));
   const practice = state.next?.practice
     ? `<span class="practice-note">Practice: nothing due, reviewing what you're closest to forgetting ·
-       <button class="link" data-action="more">+10 new cards</button></span>` : "";
+       <button class="link" data-action="more">learn 10 more today</button></span>` : "";
   $("#scope").innerHTML = `<label>Studying <select id="scope-select">${opts.join("")}</select></label>${practice}`;
   $("#scope-select").value = state.course;
   $("#scope-select").onchange = async (e) => { await setCourse(e.target.value); loadNext(); };
@@ -170,10 +170,17 @@ function inputBlock(id, chars = [], action = "submit", label = "Check") {
 function renderLearn() {
   const el = $("#card");
   const { card, next } = state;
+  if (!card && next?.no_courses) {
+    el.innerHTML = `<div class="empty"><h2>No courses yet</h2>
+      <p>Make one about anything, in a terminal:</p>
+      <p><code>tauko gen "Kubernetes networking"</code></p>
+      <p>or install one from the gallery: <code>tauko add</code></p></div>`;
+    return;
+  }
   if (!card) {
     el.innerHTML = `<div class="empty"><h2>Nothing to study here yet</h2>
-      <p>Add new cards, or pick another course above.</p>
-      <p><button class="primary" data-action="more">+10 new cards</button></p></div>`;
+      <p>Learn more cards today, or pick another course above.</p>
+      <p><button class="primary" data-action="more">Learn 10 more today</button></p></div>`;
     return;
   }
   const extra = (next.is_new ? `<span class="tag new">new</span>` : "")

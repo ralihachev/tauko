@@ -1,0 +1,103 @@
+{
+  "drills": [
+    {
+      "answers": [
+        "ingressClassName",
+        "spec.ingressClassName"
+      ],
+      "hint": "one field name",
+      "id": "kubernetes-networking-u02-q01",
+      "note": "It replaces the old kubernetes.io/ingress.class annotation.",
+      "prompt": "Which Ingress spec field picks the controller (class) that should handle it?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "Prefix"
+      ],
+      "hint": "one of Exact / Prefix / ImplementationSpecific",
+      "id": "kubernetes-networking-u02-q02",
+      "note": "Prefix matching works element by element on the path, split at '/'.",
+      "prompt": "pathType: ___ for path /api matches /api and /api/v1 but not /apix.",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "kubernetes.io/tls"
+      ],
+      "hint": "type string",
+      "id": "kubernetes-networking-u02-q03",
+      "note": "A TLS Secret holds the tls.crt and tls.key data keys.",
+      "prompt": "Which Secret type is intended for the certificate and key referenced in an Ingress spec.tls entry?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "podSelector: {}",
+        "podSelector:{}",
+        "podSelector: { }"
+      ],
+      "hint": "use an empty selector",
+      "id": "kubernetes-networking-u02-q04",
+      "note": "An empty podSelector matches all pods in the policy's namespace.",
+      "prompt": "Change this NetworkPolicy selector so it selects every pod in the namespace: podSelector: {matchLabels: {app: web}}",
+      "type": "transform"
+    },
+    {
+      "answers": [
+        "53",
+        "port 53",
+        "53/UDP and 53/TCP",
+        "53/TCP and 53/UDP",
+        "UDP 53",
+        "TCP 53",
+        "53/UDP",
+        "53/TCP"
+      ],
+      "hint": "a port number",
+      "id": "kubernetes-networking-u02-q05",
+      "note": "Allow UDP and TCP 53 to the cluster DNS pods (usually CoreDNS in kube-system).",
+      "prompt": "After adding a default-deny egress policy, which port must you allow so pods can still resolve DNS names?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "In one element they are combined with AND (pods matching podSelector in namespaces matching namespaceSelector). As two elements they are combined with OR (any pod in matching namespaces, or matching pods in the policy's own namespace)."
+      ],
+      "hint": "AND vs OR",
+      "id": "kubernetes-networking-u02-q06",
+      "note": "A single YAML dash makes a big difference here, and it is a common cause of policies that are too open.",
+      "prompt": "Compare: in a 'from' list, namespaceSelector and podSelector in one element vs. as two separate elements.",
+      "self_grade": true,
+      "type": "qa"
+    }
+  ],
+  "focus": "Traffic in, traffic out",
+  "focus_note": "An Ingress resource does nothing until an Ingress controller (for example ingress-nginx) is running to put its host and path rules into effect. NetworkPolicies are enforced only by a CNI plugin that supports them, such as Calico or Cilium. Once a policy selects a pod for a direction (ingress or egress), that pod accepts only the traffic in that direction that the policies explicitly allow. Policies only add allowances; there are no deny rules.",
+  "id": "kubernetes-networking-u02",
+  "level": "intermediate",
+  "subtitle": "Routing traffic in and fencing it off",
+  "title": "Ingress and NetworkPolicies",
+  "vocab": [
+    {
+      "example": "We created an Ingress, but nothing happened until we installed an Ingress controller.",
+      "example_translation": "The Ingress object is only configuration; a controller has to act on it.",
+      "id": "kubernetes-networking-u02-v01",
+      "meanings": [
+        "component that implements Ingress rules",
+        "reverse proxy watching Ingress objects"
+      ],
+      "term": "Ingress controller"
+    },
+    {
+      "example": "Each namespace gets a default-deny ingress policy, and then specific flows are allowed one at a time.",
+      "example_translation": "An empty podSelector plus policyTypes: [Ingress] with no rules blocks all incoming traffic to the namespace's pods.",
+      "id": "kubernetes-networking-u02-v02",
+      "meanings": [
+        "policy blocking all traffic not explicitly allowed",
+        "baseline lockdown policy"
+      ],
+      "term": "default deny"
+    }
+  ]
+}

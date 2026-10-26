@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	shipped "github.com/ralihachev/tauko/content"
 	"github.com/ralihachev/tauko/internal/content"
 	"github.com/ralihachev/tauko/internal/server"
 	"github.com/ralihachev/tauko/internal/store"
@@ -33,8 +32,9 @@ usage:
   tauko quiz  [-course id] [-unit id] [-n 10]            typed self-quiz, scored
   tauko units                                  courses, units and progress
   tauko course [id|all]                        show courses, or switch the one you study
-  tauko more [n]                               n more new cards today (default 10)
+  tauko more [n]                               learn n more unseen cards today (default 10)
   tauko gen "topic" [-level x] [-from file]    generate a course with Claude, verified, installed
+  tauko add [id|folder]                        list the course gallery, or install a course
   tauko stats                                  today's numbers
   tauko status                                 one line for the Claude Code status line
   tauko ensure                                 start the server in the background unless it runs
@@ -67,6 +67,8 @@ func main() {
 		err = withServer(func() error { return course(args) })
 	case "gen":
 		err = gen(args)
+	case "add":
+		err = add(args)
 	case "more":
 		err = withServer(func() error { return more(args) })
 	case "stats":
@@ -106,11 +108,13 @@ func serve(args []string) error {
 	addr := fl.String("addr", "127.0.0.1:8787", "listen address (use 0.0.0.0:8787 + TAUKO_TOKEN for phone access)")
 	dbPath := fl.String("db", filepath.Join(home, ".tauko", "tauko.db"), "SQLite database path")
 	newPerDay := fl.Int("new-per-day", 20, "new cards per day")
-	coursesDir := fl.String("courses", "", "load courses from this directory instead of the built-in ones (for editing content)")
-	userDir := fl.String("user-courses", filepath.Join(home, ".tauko", "courses"), "your own courses, loaded after the built-in ones (skipped if missing)")
+	coursesDir := fl.String("courses", "", "also load courses from this directory (for developing courses)")
+	userDir := fl.String("user-courses", filepath.Join(home, ".tauko", "courses"), "your courses (tauko gen and tauko add install here)")
 	fl.Parse(args)
 
-	base := []content.Source{{FS: shipped.Courses, Root: "courses"}}
+	// Courses live in ~/.tauko/courses (tauko gen / tauko add put them there); -courses
+	// adds a development folder in front of them.
+	var base []content.Source
 	if *coursesDir != "" {
 		base = []content.Source{{FS: os.DirFS(*coursesDir), Root: "."}}
 	}

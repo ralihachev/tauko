@@ -7,12 +7,14 @@ from real use**.
 
 1. Read [docs/COURSES.md](docs/COURSES.md) for the format and the rules: permanent unique IDs,
    every correct answer listed, original content only.
-2. Add `content/courses/<your-course>/` with `course.json` and `decks/*.json`.
+2. Add `examples/courses/<your-course>/` with `course.json` and `decks/*.json` (the folder name
+   must equal the course id), and list it in `examples/index.json`. `tauko gen -dir examples/courses`
+   gives you a verified first draft to edit.
 3. Run `make test`. It validates every course (JSON shape, unique IDs, one `___` per cloze, and so on).
 4. Try it: `make dev`, then open http://127.0.0.1:8787.
 5. Open a pull request saying who the course is for and its level.
 
-Course content is licensed CC BY-SA 4.0. By contributing, you agree to license your content that way.
+Gallery courses are licensed CC BY-SA 4.0. By contributing, you agree to license your content that way.
 
 ## Fix a card
 
