@@ -12,17 +12,17 @@
   <img alt="platforms" src="https://img.shields.io/badge/macOS%20%7C%20Linux-lightgrey">
 </p>
 
-<p align="center"><img src="docs/img/hero.png" alt="Claude Code working on the left, a tauko flashcard in a pane on the right"></p>
+<p align="center"><img src="docs/img/hero.png" alt="Claude Code working on the left, a Spanish flashcard in the tauko pane on the right"></p>
 
 You send Claude a prompt and wait: thirty seconds, two minutes, fifty times a day. That's an hour of
 dead time, and it usually goes to the phone.
 
 **tauko** puts that time to work. When you press enter, a card opens next to the chat, on whatever
-you want to get better at: a language, Kubernetes, Go, AWS, your team's codebase. Answer it, maybe
+you want to get better at: Spanish, world history, photography, a certification, your team's codebase. Answer it, maybe
 another one. When Claude finishes, tauko says so and you're back. Spaced repetition (FSRS) picks the
 card you're about to forget, so those half-minutes turn into things you remember.
 
-Need a course? Ask for one: `tauko gen "Kubernetes networking"` writes it with Claude, checks every
+Need a course? Ask for one: `tauko gen "Spanish for travellers"` writes it with Claude, checks every
 answer with a second pass, and installs it.
 
 ## Quick start
@@ -34,9 +34,9 @@ curl -fsSL https://raw.githubusercontent.com/ralihachev/tauko/main/install.sh | 
 Then get something to learn:
 
 ```sh
-tauko gen "Postgres query tuning" -level intermediate   # generate a course about anything
-tauko add                                               # or browse the gallery
-tauko add go-concurrency                                #   and install one
+tauko gen "Italian for beginners" -level A1   # generate a course about anything
+tauko add                                     # or browse the gallery
+tauko add spanish-a2-travel                   #   and install one
 ```
 
 Start a new Claude Code session and send any prompt. That's all.
@@ -73,7 +73,7 @@ git clone https://github.com/ralihachev/tauko && cd tauko && make install && tau
 
 Answer, see what you missed, grade it, next:
 
-<p align="center"><img src="docs/img/answer.png" alt="An answered tauko card: almost right, the accepted answers, a note, and the grade buttons" width="620"></p>
+<p align="center"><img src="docs/img/answer.png" alt="An answered Spanish card: almost right (missing accent), the answer, translation, grammar note and grade buttons" width="620"></p>
 
 ## What the cards look like
 
@@ -81,13 +81,13 @@ A course mixes five kinds of cards:
 
 | Kind | Example prompt | You answer |
 |---|---|---|
-| **recognize** | idempotent | same result however often it runs |
-| **produce** | the default Service type, reachable only in-cluster | ClusterIP |
-| **fill in** | By default, NodePort Services get a port in the range 30000-___. | 32767 |
-| **rewrite** | Rewrite in the past tense: *Yo como pan.* | Yo comí pan. |
-| **question** | What happens when you send on a closed channel? | it panics |
+| **recognize** | el andén | platform |
+| **produce** | return ticket | el billete de ida y vuelta |
+| **fill in** | Ayer ___ en un restaurante muy bueno. *(cenar, yo, past)* | cené |
+| **rewrite** | Make it polite: *Quiero una habitación individual.* | Quisiera una habitación individual. |
+| **question** | In which year did the Berlin Wall fall? | 1989 |
 
-Open questions with no single right answer ("When is an unbuffered channel the better choice?") are
+Open questions with no single right answer ("Why did the Berlin Wall fall?") are
 **self-graded**: you write your answer, see a model answer next to it, and grade yourself.
 
 ## Get courses
@@ -95,9 +95,9 @@ Open questions with no single right answer ("When is an unbuffered channel the b
 ### Generate one with Claude
 
 ```sh
-tauko gen "Kubernetes networking" -level intermediate
-tauko gen "Spanish A2: past tenses" -units 4
-tauko gen "our payments service" -from docs/payments.md    # text, markdown or PDF
+tauko gen "Spanish for travellers" -level A2
+tauko gen "World history: the Cold War" -units 4
+tauko gen "my driving theory notes" -from notes.pdf     # text, markdown or PDF
 ```
 
 `tauko gen` uses Claude Code (`claude -p`, on your existing plan) in three steps:
@@ -107,7 +107,7 @@ tauko gen "our payments service" -from docs/payments.md    # text, markdown or P
 
 On confirm, it installs the course and reloads the server. A 2-unit course takes about a minute:
 
-<p align="center"><img src="docs/img/gen.png" alt="tauko gen output: drafting, four fixes from the verification pass, the course outline and install" width="720"></p>
+<p align="center"><img src="docs/img/gen.png" alt="tauko gen output for a Spanish course: drafting, two fixes from the verification pass, the course outline and install" width="720"></p>
 
 Generated courses are a draft, not a textbook. If a card looks wrong, edit it in `~/.tauko/courses/`
 and run `tauko restart`.
@@ -116,11 +116,12 @@ and run `tauko restart`.
 
 ```sh
 tauko add                          # list the gallery
-tauko add kubernetes-networking    # install a course
+tauko add spanish-a2-travel        # install a course
 ```
 
 | Course | Cards |
 |---|---|
+| [Español de viaje A2](examples/courses/spanish-a2-travel): tickets, hotels, and saying what you did yesterday | 20 |
 | [Go concurrency](examples/courses/go-concurrency): channels, select, sync, context | 20 |
 | [Kubernetes networking](examples/courses/kubernetes-networking): Services, DNS, Ingress, NetworkPolicies | 20 |
 
@@ -128,23 +129,23 @@ Made a good one? Add it to `examples/courses` and open a pull request.
 
 ### Write your own
 
-A course is a folder with two kinds of JSON file. Make `~/.tauko/courses/aws-iam/course.json`:
+A course is a folder with two kinds of JSON file. Make `~/.tauko/courses/photo/course.json`:
 
 ```json
-{ "id": "aws-iam", "title": "AWS IAM" }
+{ "id": "photo", "title": "Photography basics" }
 ```
 
-…and `~/.tauko/courses/aws-iam/decks/01-policies.json`:
+…and `~/.tauko/courses/photo/decks/01-exposure.json`:
 
 ```json
 {
-  "id": "aws-iam-01",
-  "title": "Policies",
+  "id": "photo-01",
+  "title": "Exposure",
   "drills": [
-    { "id": "aws-iam-01-q1", "type": "qa", "prompt": "An explicit Deny and an Allow both match. What wins?",
-      "answers": ["the deny", "deny", "explicit deny"] },
-    { "id": "aws-iam-01-q2", "type": "cloze", "prompt": "A role's ___ policy says who may assume it.",
-      "hint": "one word", "answers": ["trust"] }
+    { "id": "photo-01-q1", "type": "qa", "prompt": "Which setting mostly decides how much of the photo is in focus?",
+      "answers": ["aperture", "the aperture", "f-stop"] },
+    { "id": "photo-01-q2", "type": "cloze", "prompt": "A fast shutter speed ___ motion.",
+      "hint": "freezes or blurs?", "answers": ["freezes"] }
   ]
 }
 ```
@@ -175,8 +176,8 @@ The status line shows what's left: `📖 14 to do · 6 today · 🔥3`.
 ```sh
 tauko                          # learn (type mode)
 tauko learn -mode tap          # recall, then reveal
-tauko course                   # list courses; tauko course aws-iam to switch
-tauko quiz -course aws-iam     # 10 questions, scored
+tauko course                   # list courses; tauko course photo to switch
+tauko quiz -course photo       # 10 questions, scored
 tauko stats                    # today, streak, totals
 ```
 

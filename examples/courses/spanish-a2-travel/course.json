@@ -1,0 +1,26 @@
+{
+  "chars": [
+    "á",
+    "é",
+    "í",
+    "ó",
+    "ú",
+    "ñ",
+    "ü",
+    "¿",
+    "¡"
+  ],
+  "description": "After this course you can buy train tickets, book a hotel room politely and say what you did yesterday using the pretérito indefinido.",
+  "focus_label": "Grammar",
+  "id": "spanish-a2-travel",
+  "labels": {
+    "cloze": "Completa la frase",
+    "produce": "¿Cómo se dice en español?",
+    "qa": "Responde",
+    "recognize": "¿Qué significa?",
+    "transform": "Transforma la frase"
+  },
+  "subject": "language",
+  "title": "Español de viaje A2",
+  "title_en": "Travel Spanish A2"
+}

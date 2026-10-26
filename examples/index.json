@@ -10,5 +10,11 @@
     "title": "Kubernetes networking",
     "description": "After this course you can choose the right Service type, predict cluster DNS names, route HTTP traffic with Ingress, and lock down pod traffic with NetworkPolicies.",
     "cards": 20
+  },
+  {
+    "id": "spanish-a2-travel",
+    "title": "Español de viaje A2",
+    "description": "After this course you can buy train tickets, book a hotel room politely and say what you did yesterday using the pretérito indefinido.",
+    "cards": 20
   }
 ]

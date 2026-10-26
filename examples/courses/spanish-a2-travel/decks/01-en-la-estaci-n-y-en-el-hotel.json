@@ -1,0 +1,94 @@
+{
+  "drills": [
+    {
+      "answers": [
+        "Quisiera",
+        "Querría",
+        "Quería",
+        "quisiera",
+        "querría",
+        "quería"
+      ],
+      "hint": "querer, polite 'I would like' form",
+      "id": "spanish-a2-travel-u01-q01",
+      "note": "'Quisiera' is the most polite way to say 'I would like'.",
+      "prompt": "___ un billete para Sevilla, por favor.",
+      "translation": "I'd like a ticket to Seville, please.",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "¿A qué hora sale el tren?",
+        "A qué hora sale el tren",
+        "¿A qué hora sale el tren",
+        "A qué hora sale el tren?"
+      ],
+      "hint": "¿A qué hora...?",
+      "id": "spanish-a2-travel-u01-q02",
+      "note": "In the present tense, 'salir' (to leave) is irregular only in the yo form (salgo); 'sale' is regular. 'Qué' needs its accent in questions.",
+      "prompt": "How do you ask 'What time does the train leave?' in Spanish?",
+      "translation": "What time does the train leave?",
+      "type": "qa"
+    },
+    {
+      "answers": [
+        "está"
+      ],
+      "hint": "estar, 3rd person singular, present",
+      "id": "spanish-a2-travel-u01-q03",
+      "note": "'Estar incluido' = to be included; 'está' needs the accent.",
+      "prompt": "¿El desayuno ___ incluido?",
+      "translation": "Is breakfast included?",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "Quisiera una habitación individual.",
+        "Quisiera una habitación individual"
+      ],
+      "hint": "Replace the verb only",
+      "id": "spanish-a2-travel-u01-q04",
+      "note": "'Quiero' can sound blunt; 'quisiera' softens the request.",
+      "prompt": "Make it polite using 'quisiera': Quiero una habitación individual.",
+      "translation": "I'd like a single room.",
+      "type": "transform"
+    }
+  ],
+  "focus": "Polite requests with 'quisiera'",
+  "focus_note": "Use 'quisiera' (I would like) instead of 'quiero' (I want) to make requests sound polite. It works with a noun or an infinitive. Example: 'Quisiera un billete para Madrid' (I'd like a ticket to Madrid). 'Quería' and 'querría' are also common and polite.",
+  "id": "spanish-a2-travel-u01",
+  "level": "A2",
+  "subtitle": "Tickets, platforms and rooms",
+  "title": "En la estación y en el hotel",
+  "vocab": [
+    {
+      "example": "El tren sale del andén tres.",
+      "example_translation": "The train leaves from platform three.",
+      "id": "spanish-a2-travel-u01-v01",
+      "meanings": [
+        "platform",
+        "station platform"
+      ],
+      "term": "el andén"
+    },
+    {
+      "example": "Quisiera un billete de ida y vuelta a Toledo.",
+      "example_translation": "I'd like a return ticket to Toledo.",
+      "id": "spanish-a2-travel-u01-v02",
+      "meanings": [
+        "return ticket",
+        "round-trip ticket"
+      ],
+      "term": "el billete de ida y vuelta"
+    },
+    {
+      "example": "¿Tienen una habitación doble para esta noche?",
+      "example_translation": "Do you have a double room for tonight?",
+      "id": "spanish-a2-travel-u01-v03",
+      "meanings": [
+        "double room"
+      ],
+      "term": "la habitación doble"
+    }
+  ]
+}

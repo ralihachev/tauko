@@ -1,0 +1,84 @@
+{
+  "drills": [
+    {
+      "answers": [
+        "cené"
+      ],
+      "hint": "cenar, yo, pretérito indefinido",
+      "id": "spanish-a2-travel-u02-q01",
+      "note": "Regular -ar verb: yo form ends in -é with an accent.",
+      "prompt": "Ayer ___ en un restaurante muy bueno.",
+      "translation": "Yesterday I had dinner at a very good restaurant.",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "fuimos"
+      ],
+      "hint": "ir, nosotros, pretérito indefinido",
+      "id": "spanish-a2-travel-u02-q02",
+      "note": "'Ir' is irregular: fui, fuiste, fue, fuimos, fuisteis, fueron.",
+      "prompt": "Anoche ___ al museo.",
+      "translation": "Last night we went to the museum.",
+      "type": "cloze"
+    },
+    {
+      "answers": [
+        "Llegué a la estación a las ocho.",
+        "Llegué a la estación a las ocho"
+      ],
+      "hint": "yo form of llegar; watch the spelling",
+      "id": "spanish-a2-travel-u02-q03",
+      "note": "Verbs in -gar add 'u' in the yo form to keep the hard g sound: llegué.",
+      "prompt": "Change to the pretérito indefinido: Llego a la estación a las ocho.",
+      "translation": "I arrived at the station at eight.",
+      "type": "transform"
+    },
+    {
+      "answers": [
+        "tuve"
+      ],
+      "hint": "Irregular stem tuv-",
+      "id": "spanish-a2-travel-u02-q04",
+      "note": "'Tener' has the stem tuv- and no accents: tuve, tuviste, tuvo...",
+      "prompt": "What is the yo form of 'tener' in the pretérito indefinido?",
+      "translation": "I had",
+      "type": "qa"
+    }
+  ],
+  "focus": "Pretérito indefinido: regular endings and key irregulars",
+  "focus_note": "The pretérito indefinido describes finished actions at a specific time in the past. Regular -ar verbs take -é, -aste, -ó, -amos, -asteis, -aron; -er/-ir verbs take -í, -iste, -ió, -imos, -isteis, -ieron. 'Ir' and 'ser' share the same irregular forms: fui, fuiste, fue, fuimos, fuisteis, fueron. Example: 'Ayer visité la catedral' (Yesterday I visited the cathedral).",
+  "id": "spanish-a2-travel-u02",
+  "level": "A2",
+  "subtitle": "Talking about yesterday",
+  "title": "¿Qué hiciste ayer?",
+  "vocab": [
+    {
+      "example": "Ayer llegué al hotel muy tarde.",
+      "example_translation": "Yesterday I arrived at the hotel very late.",
+      "id": "spanish-a2-travel-u02-v01",
+      "meanings": [
+        "yesterday"
+      ],
+      "term": "ayer"
+    },
+    {
+      "example": "Anoche cenamos en la plaza.",
+      "example_translation": "Last night we had dinner in the square.",
+      "id": "spanish-a2-travel-u02-v02",
+      "meanings": [
+        "last night"
+      ],
+      "term": "anoche"
+    },
+    {
+      "example": "La semana pasada viajé a Granada.",
+      "example_translation": "Last week I travelled to Granada.",
+      "id": "spanish-a2-travel-u02-v03",
+      "meanings": [
+        "last week"
+      ],
+      "term": "la semana pasada"
+    }
+  ]
+}
