@@ -125,6 +125,11 @@ Content is not in the DB. A card without a `card_state` row is *new*.
 - Listening cards (TTS) and dictation for language courses
 - More gallery courses: languages, certifications, popular tools
 
+**v0.5: courses without leaving Claude Code** (done)
+- The pane makes a course about any topic, or installs one from the gallery; the server does it in
+  the background and reloads its courses in place, then the new course opens in the pane
+- It's also what a new learner sees before any course is installed
+
 **Product (if it works for me)**
 - Multi-user accounts, sync, hosted
 - Content packs: languages, certifications, "your own codebase"

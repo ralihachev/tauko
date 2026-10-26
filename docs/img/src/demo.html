@@ -1,0 +1,116 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css">
+<style>
+  .win { width: 1180px; }
+  .split { min-height: 540px; }
+  .split.solo { grid-template-columns: 1fr; }
+  .split.solo .right { display: none; }
+  .split.solo .left { border-right: none; }
+  .left pre.log { flex: 1; }
+</style></head><body>
+<!-- One frame of the README demo GIF per ?f=N; see README.md for how frames become demo.gif. -->
+<div class="win">
+  <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">my-app — claude</span></div>
+  <div class="split" id="split">
+    <div class="left">
+      <pre class="log" id="log"></pre>
+      <div class="promptbox"><pre id="prompt"></pre></div>
+      <pre class="dim">📖 14 to do · 6 today · 🔥3</pre>
+    </div>
+    <div class="right" id="pane"></div>
+  </div>
+</div>
+<script>
+const f = Number(new URLSearchParams(location.search).get('f') || 0)
+const ask = 'add a dark mode toggle to the settings page'
+const claude = [
+  `<span class="dim">&gt;</span> ${ask}\n`,
+  `<span class="claude">⏺</span> I'll look at the settings page and the theme setup first.\n`,
+  `<span class="claude">⏺</span> <span class="b">Read</span>(src/settings/SettingsPage.tsx)\n  <span class="dim">⎿  Read 128 lines</span>\n`,
+  `<span class="claude">⏺</span> <span class="b">Read</span>(src/theme.ts)\n  <span class="dim">⎿  Read 54 lines</span>\n`,
+  `<span class="claude">⏺</span> <span class="b">Update</span>(src/theme.ts)\n  <span class="dim">⎿  Updated with 38 additions and 4 removals</span>\n`,
+  `<span class="claude">⏺</span> <span class="b">Update</span>(src/settings/SettingsPage.tsx)\n  <span class="dim">⎿  Updated with 21 additions</span>\n`,
+  `<span class="claude">⏺</span> Dark mode is in: a toggle under Settings → Appearance,\n  saved for next time. Tests pass.\n`,
+]
+// How much of Claude's work each frame shows, and what the pane shows.
+const frames = [
+  { typed: 18 }, { typed: ask.length },
+  { log: 1, spin: 'Thinking… (3s)', pane: 'ask', answer: '' },
+  { log: 2, spin: 'Reading… (9s)', pane: 'ask', answer: '¿A qué' },
+  { log: 3, spin: 'Reading… (14s)', pane: 'ask', answer: '¿A qué hora sale' },
+  { log: 3, spin: 'Reading… (18s)', pane: 'ask', answer: '¿A qué hora sale el tren?' },
+  { log: 4, spin: 'Brewing… (24s)', pane: 'correct' },
+  { log: 5, spin: 'Brewing… (38s)', pane: 'lesson' },
+  { log: 7, pane: 'done' },
+]
+const fr = frames[Math.min(f, frames.length - 1)]
+
+if (fr.typed !== undefined) {
+  document.getElementById('split').classList.add('solo')
+  document.getElementById('prompt').innerHTML = `<span class="dim">&gt;</span> ${ask.slice(0, fr.typed)}<span class="cursor"> </span>`
+} else {
+  const spin = fr.spin ? `<span class="claude">✻ ${fr.spin.replace(/\((.*)\)/, '<span class="dim">($1 · esc to interrupt)</span>')}</span>` : `<span class="dim">✻ Brewed for 52s</span>`
+  document.getElementById('log').innerHTML = claude.slice(0, fr.log).join('\n') + '\n' + spin
+  document.getElementById('prompt').innerHTML = `<span class="dim">&gt;</span> <span class="cursor"> </span>`
+}
+
+const busy = fr.pane !== 'done'
+const header = (due, nw, done) => `<span class="x">×</span>
+  <div class="row">${busy ? '<span class="claude b">● Claude is working · your turn</span>' : '<span class="green b">✓ Claude is done</span>'}<span class="dim" style="margin-right:22px">${due} due · ${nw} new · ${done} ✓</span></div>`
+const question = `
+  <div class="row"><span class="dim">Español de viaje A2 · En la estación y en el hotel</span><span class="yellow b">NEW</span></div>
+  <div class="dim i">Polite requests and questions at the station</div>
+  <div class="spacer"></div>
+  <div class="lav b">RESPONDE</div>
+  <div class="b">How do you ask 'What time does the train leave?' in Spanish?</div>
+  <div class="dim i">→ ¿A qué hora...?</div>`
+const controls = `<div class="spacer"></div><pre><span class="lav">c</span><span class="dim">: courses   </span><span class="lav">n</span><span class="dim">: learn 10 more today   </span><span class="lav">m</span><span class="dim">: tap mode</span></pre>`
+
+const panes = {
+  ask: () => `${header(3, 12, 18)}
+    <div class="card">${question}</div>
+    <pre class="input"><span class="lav b">›</span>: ${fr.answer}<span class="cursor"> </span>   <span class="dim">⏎ check</span></pre>
+    <div class="spacer"></div><pre class="dim">courses (tab)   learn 10 more today   tap mode</pre>
+    <div class="spacer"></div><pre class="dim">enter check · esc back to Claude</pre>`,
+  correct: () => `${header(3, 12, 18)}
+    <div class="card ok">${question}
+      <div class="rule"></div>
+      <div class="green b">✓ Correct</div>
+      <div class="spacer"></div>
+      <div class="green b" style="font-size:16px">¿A qué hora sale el tren?</div>
+      <div class="note">💡 salir → sale: 'the train leaves'. ¿A qué hora...? asks for a time.</div>
+    </div>
+    <pre class="btns"><span>[ <span class="red">1 Again</span> ]</span><span>[ <span class="yellow">2 Hard</span> ]</span><span class="primary">[ 3 Good ]</span><span>[ <span class="blue">4 Easy</span> ]</span></pre>
+    ${controls}
+    <div class="spacer"></div><pre class="dim">enter Good · 1–4 grade · e why · k know it · esc back</pre>`,
+  lesson: () => `${header(2, 11, 19)}
+    <div class="card">
+      <div class="row"><span class="dim">Español de viaje A2 · ¿Qué hiciste ayer?</span><span class="lav b">LESSON</span></div>
+      <div class="spacer"></div>
+      <div class="lav b">LEARN</div>
+      <div class="b">Saying what you did yesterday</div>
+      <div class="spacer"></div>
+      <div>For finished actions in the past, Spanish uses the pretérito. Regular -ar verbs take -é for 'I': cenar → cené, hablar → hablé. The accent matters: ceno is 'I eat dinner', cené is 'I ate dinner'.</div>
+      <div class="spacer"></div>
+      <div class="i">“Ayer cené en un restaurante muy bueno.”</div>
+      <div class="dim i">Yesterday I had dinner at a very good restaurant.</div>
+    </div>
+    <pre class="btns"><span class="primary">[ got it → quick check ]</span><span class="dim">e: explain differently</span></pre>
+    ${controls}`,
+  done: () => `${header(2, 11, 19)}
+    <div class="card">
+      <div class="row"><span class="dim">Español de viaje A2 · ¿Qué hiciste ayer?</span><span class="lav b">LESSON</span></div>
+      <div class="spacer"></div>
+      <div class="lav b">LEARN</div>
+      <div class="b">Saying what you did yesterday</div>
+      <div class="spacer"></div>
+      <div>For finished actions in the past, Spanish uses the pretérito. Regular -ar verbs take -é for 'I': cenar → cené, hablar → hablé. The accent matters: ceno is 'I eat dinner', cené is 'I ate dinner'.</div>
+      <div class="spacer"></div>
+      <div class="i">“Ayer cené en un restaurante muy bueno.”</div>
+      <div class="dim i">Yesterday I had dinner at a very good restaurant.</div>
+    </div>
+    <pre class="yellow b">⌨ ctrl+x tab to answer</pre>
+    ${controls}`,
+}
+if (fr.pane) document.getElementById('pane').innerHTML = panes[fr.pane]()
+</script>
+</body></html>

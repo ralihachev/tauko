@@ -1,6 +1,6 @@
 {
   "name": "tauko",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Flashcards and quizzes in a pane beside the chat while Claude works",
   "types": "./types/index.d.ts"
 }

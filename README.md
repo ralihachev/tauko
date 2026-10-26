@@ -12,7 +12,7 @@
   <img alt="platforms" src="https://img.shields.io/badge/macOS%20%7C%20Linux-lightgrey">
 </p>
 
-<p align="center"><img src="docs/img/hero.png" alt="Claude Code working on the left, a Spanish flashcard in the tauko pane on the right"></p>
+<p align="center"><img src="docs/img/demo.gif" alt="Press enter in Claude Code: a Spanish flashcard opens beside the chat, gets answered and graded, a short lesson follows, and the pane says when Claude is done"></p>
 
 You send Claude a prompt and wait: thirty seconds, two minutes, fifty times a day. That's an hour of
 dead time, and it usually goes to the phone.
@@ -22,8 +22,8 @@ you want to get better at: Spanish, world history, photography, a certification,
 another one. When Claude finishes, tauko says so and you're back. Spaced repetition (FSRS) picks the
 card you're about to forget, so those half-minutes turn into things you remember.
 
-Need a course? Ask for one: `tauko gen "Spanish for travellers"` writes it with Claude, checks every
-answer with a second pass, and installs it.
+Need a course? Ask for one: type a topic in the pane, or run `tauko gen "Spanish for travellers"`.
+Claude writes it, a second pass checks every answer, and tauko installs it.
 
 ## Quick start
 
@@ -31,7 +31,8 @@ answer with a second pass, and installs it.
 curl -fsSL https://raw.githubusercontent.com/ralihachev/tauko/main/install.sh | sh
 ```
 
-Then get something to learn:
+Then get something to learn. Start Claude Code, send any prompt, and the pane offers the gallery and a
+"make one about anything" field. Or, from a terminal:
 
 ```sh
 tauko gen "Italian for beginners" -level A1   # generate a course about anything
@@ -109,9 +110,16 @@ tauko gen "my driving theory notes" -from notes.pdf     # text, markdown or PDF
 2. **Verify:** a second, independent pass checks every answer and fixes wrong or ambiguous cards.
 3. **Check and preview:** tauko runs its own course checks and shows you the result.
 
-On confirm, it installs the course and reloads the server. A 2-unit course takes about a minute:
+On confirm, it installs the course and reloads the server. A 2-unit course takes about a minute.
+From the pane (`c`, then `a`), the same happens in the background while you keep working, and the
+course opens in the pane when it's ready:
 
 <p align="center"><img src="docs/img/gen.png" alt="tauko gen output for a Spanish course: drafting, two fixes from the verification pass, the course outline and install" width="720"></p>
+
+Or make one without leaving Claude Code: press `c`, then `a`, and type a topic. With no courses
+installed, the pane opens on this screen by itself:
+
+<p align="center"><img src="docs/img/add.png" alt="The tauko pane making a photography course in the background, with gallery courses to install in one press" width="620"></p>
 
 Generated courses are a draft, not a textbook. If a card looks wrong, edit it in `~/.tauko/courses/`
 and run `tauko restart`.
@@ -165,7 +173,7 @@ keys for languages) is in **[docs/COURSES.md](docs/COURSES.md)**.
 |---|---|
 | type + `enter` | check your answer |
 | `enter` or `1`–`4` | grade it and move on |
-| `c` | switch course, or study all of them (new cards rotate) |
+| `c` | switch course, or study all of them (new cards rotate); `a` there adds a course |
 | `n` | learn 10 more unseen cards today |
 | `e` | explain this card: why the answer is what it is, for what you typed |
 | `k` | I know this: retire the card so it never comes back (undo right after, or `tauko restore`) |
@@ -259,7 +267,7 @@ The thinking behind it is in [docs/DESIGN.md](docs/DESIGN.md).
 ## Contributing
 
 Courses, bug reports and code are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). If tauko helps
-you, a ⭐ helps others find it.
+you, a ⭐ helps others find it, and you can [buy me a coffee ☕](https://ko-fi.com/romanslab).
 
 *tauko* is Finnish for "a pause".
 
