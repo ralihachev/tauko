@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css">
+<style>.win{width:860px}.term{padding:16px 20px 22px}</style></head><body>
+<div class="win">
+  <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">~ — zsh</span></div>
+<pre class="term"><span class="green">~</span> <span class="b">tauko gen "Kubernetes networking" -level intermediate</span>
+<span class="blue">→ Drafting the course with Claude (about a minute)</span>
+  <span class="green">✓</span> 2 units, 20 cards
+<span class="blue">→ Verifying every answer with a second, independent pass</span>
+  <span class="green">✓</span> 4 fixes:
+      <span class="dim">- TLS Secret card: 'must have' → 'intended for' (the API doesn't enforce the type)</span>
+      <span class="dim">- DNS port card: added answers '53/UDP', '53/TCP'</span>
+      <span class="dim">- podSelector card: added spacing variant 'podSelector: { }'</span>
+      <span class="dim">- NetworkPolicy note: isolation applies per direction (ingress/egress)</span>
+<span class="blue">→ Checking the course</span>
+  <span class="green">✓</span> valid
+
+<span class="b">Kubernetes networking</span> <span class="dim">(kubernetes-networking)</span>
+   1. Services and Cluster DNS           <span class="dim">10 cards</span>
+   2. Ingress and NetworkPolicies        <span class="dim">10 cards</span>
+
+<span class="b">Sample cards</span>
+  Which Service type do you get if you don't set spec.type?  <span class="green">→ ClusterIP</span>
+  By default, NodePort Services get a port in 30000-___.  <span class="green">→ 32767</span>
+
+Install it to ~/.tauko/courses/kubernetes-networking? [Y/n] y
+  <span class="green">✓</span> installed ~/.tauko/courses/kubernetes-networking
+  <span class="green">✓</span> server restarted
+
+Study it: press <span class="b">c</span> in the tauko pane, or run <span class="b">tauko course kubernetes-networking</span></pre>
+</div>
+</body></html>

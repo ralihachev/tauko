@@ -1,0 +1,30 @@
+:root {
+  --bg: #1e1e1e; --chrome: #2b2b2b; --text: #e6e6e6; --dim: #8a8a8a;
+  --claude: #d97757; --lav: #b1b9f9; --green: #4eba65; --yellow: #ffc107; --red: #ff6b80; --blue: #8fa4ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d1117; padding: 28px; font-family: "SF Mono", Menlo, Monaco, monospace; font-size: 14px; line-height: 1.55; color: var(--text); }
+.win { background: var(--bg); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.55); border: 1px solid #3a3a3a; }
+.bar { height: 34px; background: var(--chrome); display: flex; align-items: center; padding: 0 14px; gap: 8px; border-bottom: 1px solid #111; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.title { flex: 1; text-align: center; color: #9a9a9a; font-family: -apple-system, system-ui, sans-serif; font-size: 13px; margin-right: 60px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; min-height: 560px; }
+.left { padding: 18px 20px; border-right: 1px solid #3c3c3c; display: flex; flex-direction: column; }
+.right { padding: 16px 18px; position: relative; }
+.x { position: absolute; right: 14px; top: 8px; color: var(--dim); }
+pre { white-space: pre-wrap; font: inherit; }
+.dim { color: var(--dim); } .b { font-weight: 700; } .i { font-style: italic; }
+.claude { color: var(--claude); } .lav { color: var(--lav); } .green { color: var(--green); }
+.yellow { color: var(--yellow); } .red { color: var(--red); } .blue { color: var(--blue); }
+.row { display: flex; justify-content: space-between; gap: 12px; }
+.card { border: 1.5px solid var(--lav); border-radius: 10px; padding: 16px 22px; margin: 14px 0; }
+.card.ok { border-color: var(--green); }
+.card.almost { border-color: var(--yellow); }
+.rule { border-top: 1.5px solid #6b6b6b; margin: 10px 0; width: 70%; }
+.note { margin-top: 10px; }
+.input { margin-top: 4px; }
+.cursor { background: #ddd; color: #1e1e1e; }
+.btns > span { margin-right: 14px; }
+.primary { background: var(--lav); color: #1e1e1e; font-weight: 700; padding: 0 4px; }
+.promptbox { margin-top: auto; border-top: 1px solid #555; border-bottom: 1px solid #555; padding: 6px 0; }
+.spacer { height: 12px; }

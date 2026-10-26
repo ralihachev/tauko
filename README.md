@@ -12,7 +12,7 @@
   <img alt="platforms" src="https://img.shields.io/badge/macOS%20%7C%20Linux-lightgrey">
 </p>
 
-<p align="center"><img src="docs/img/web.png" alt="A tauko card" width="340"></p>
+<p align="center"><img src="docs/img/hero.png" alt="Claude Code working on the left, a tauko flashcard in a pane on the right"></p>
 
 You send Claude a prompt and wait: thirty seconds, two minutes, fifty times a day. That's an hour of
 dead time, and it usually goes to the phone.
@@ -71,25 +71,9 @@ git clone https://github.com/ralihachev/tauko && cd tauko && make install && tau
 - **The schedule adapts.** Grade each card Again, Hard, Good or Easy, and FSRS spaces its next review: minutes for new cards, weeks for well-known ones.
 - **It never runs dry.** tauko introduces 20 unseen cards a day so your reviews stay manageable. Once you've done today's cards, it switches to **practice**: the cards you're closest to forgetting, all day long. Press `n` to learn 10 more unseen cards instead.
 
-In Claude Code the pane looks like this:
+Answer, see what you missed, grade it, next:
 
-```
-● Claude is working · your turn         Kubernetes networking · 3 due · 12 new · 18 ✓
-╭──────────────────────────────────────────────────────────────╮
-│  Kubernetes networking · Services and Cluster DNS        NEW │
-│  Stable names for changing pods                              │
-│                                                              │
-│  ANSWER                                                      │
-│  Which Service type do you get if you don't set spec.type?   │
-│  ────────────────────────────────────────────────────────    │
-│  ✓ Correct                                                   │
-│  ClusterIP                                                   │
-│  💡 ClusterIP is the default and is reachable only from      │
-│     inside the cluster.                                      │
-╰──────────────────────────────────────────────────────────────╯
-[ 1 Again ] [ 2 Hard ] [ 3 Good ] [ 4 Easy ]
-c courses   n learn 10 more today   m tap mode
-```
+<p align="center"><img src="docs/img/answer.png" alt="An answered tauko card: almost right, the accepted answers, a note, and the grade buttons" width="620"></p>
 
 ## What the cards look like
 
@@ -123,18 +107,7 @@ tauko gen "our payments service" -from docs/payments.md    # text, markdown or P
 
 On confirm, it installs the course and reloads the server. A 2-unit course takes about a minute:
 
-```
-→ Verifying every answer with a second, independent pass
-  ✓ 2 fixes:
-      - NodePort example: changed 'Open port 30080' to 'Connect to port 30080', because the client
-        connects to the port and Kubernetes opens it.
-→ Checking the course
-  ✓ valid
-
-Kubernetes networking (kubernetes-networking)
-   1. Services and Cluster DNS           10 cards
-   2. Ingress and NetworkPolicies        10 cards
-```
+<p align="center"><img src="docs/img/gen.png" alt="tauko gen output: drafting, four fixes from the verification pass, the course outline and install" width="720"></p>
 
 Generated courses are a draft, not a textbook. If a card looks wrong, edit it in `~/.tauko/courses/`
 and run `tauko restart`.
@@ -207,6 +180,8 @@ tauko quiz -course aws-iam     # 10 questions, scored
 tauko stats                    # today, streak, totals
 ```
 
+<img src="docs/img/web.png" alt="tauko in the browser" width="260" align="right">
+
 **In the browser:** http://127.0.0.1:8787 shows the same cards with a course picker and the
 "Claude is working" / "Claude is done" banner.
 
@@ -218,6 +193,8 @@ TAUKO_TOKEN=$(openssl rand -hex 16) tauko serve -addr 0.0.0.0:8787
 
 Open `http://<your-computer>:8787/?token=<token>` (over [Tailscale](https://tailscale.com), for example) and
 **Add to Home Screen**. Put it where Instagram used to be.
+
+<br clear="right">
 
 ## FAQ
 
