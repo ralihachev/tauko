@@ -4,7 +4,7 @@
   "description": "Learn anything in the gaps while your AI agent works.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0f1720",
-  "theme_color": "#0f1720",
+  "background_color": "#10201f",
+  "theme_color": "#10201f",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

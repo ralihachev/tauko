@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1720">
+<meta name="theme-color" content="#10201f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3ecdc" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>tauko</title>
@@ -13,29 +14,36 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="busybar" aria-hidden="true"></div>
+
 <header>
-  <div class="brand">tauko</div>
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="8" y="8" width="5" height="16" rx="2.5"/><rect x="17" y="8" width="5" height="16" rx="2.5"/><circle class="dot" cx="25.5" cy="7" r="3"/></svg>
+    tauko
+  </div>
   <div id="signal" class="signal" hidden></div>
   <div id="counts" class="counts"></div>
 </header>
 
 <nav>
-  <button data-view="learn" class="active">Learn</button>
-  <button data-view="quiz">Quiz</button>
-  <button data-view="units">Courses</button>
-  <div class="mode" role="group" aria-label="mode">
-    <button data-mode="tap">tap</button>
-    <button data-mode="type">type</button>
+  <div class="tabs" role="tablist">
+    <button data-view="learn" class="active">Learn</button>
+    <button data-view="quiz">Quiz</button>
+    <button data-view="units">Courses</button>
+  </div>
+  <div class="mode" role="group" aria-label="Answer mode">
+    <button data-mode="tap" title="Recall in your head, then reveal">Tap</button>
+    <button data-mode="type" title="Type the answer and have it checked">Type</button>
   </div>
 </nav>
 
 <main>
   <section id="view-learn" class="view">
     <div id="scope" class="scope"></div>
-    <div id="card" class="card"></div>
+    <div class="deck"><div id="card" class="card"></div></div>
   </section>
   <section id="view-quiz" class="view" hidden>
-    <div id="quiz" class="card"></div>
+    <div class="deck"><div id="quiz" class="card"></div></div>
   </section>
   <section id="view-units" class="view" hidden>
     <div id="units" class="units"></div>

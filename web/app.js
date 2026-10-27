@@ -51,10 +51,13 @@ const state = {
 async function refreshCounts() {
   try {
     const s = await api("GET", "/api/stats");
-    const streak = s.stats.streak_days ? ` · 🔥${s.stats.streak_days}` : "";
-    $("#counts").textContent = `${s.due} due · ${s.new_left} new · ${s.stats.reviews_today} ✓${streak}`;
+    const stat = (n, label, hot) => `<span class="stat${hot ? " hot" : ""}"><b>${n}</b>${label}</span>`;
+    $("#counts").className = "counts";
+    $("#counts").innerHTML = stat(s.due, "due") + stat(s.new_left, "new") + stat(s.stats.reviews_today, "today")
+      + (s.stats.streak_days ? stat(s.stats.streak_days, "streak", true) : "");
   } catch (e) {
-    $("#counts").textContent = "offline";
+    $("#counts").className = "counts offline";
+    $("#counts").textContent = "server offline";
   }
 }
 
@@ -65,8 +68,9 @@ async function pollSignal() {
     const el = $("#signal");
     if (!s.state) { el.hidden = true; return; }
     el.hidden = false;
+    document.body.dataset.claude = s.state;
     el.className = "signal " + s.state;
-    el.textContent = s.state === "busy" ? "Claude is working, your turn" : "✓ Claude finished";
+    el.textContent = s.state === "busy" ? "Claude is working" : "Claude is done";
     if (s.state === "idle" && lastSignal === "busy" && navigator.vibrate) navigator.vibrate(80);
     if (s.state === "idle" && lastSignal === "busy") document.title = "✓ tauko";
     if (s.state === "busy") document.title = "tauko";
@@ -99,9 +103,9 @@ async function renderScope() {
   const opts = [`<option value="">All courses</option>`]
     .concat(courses.map((c) => `<option value="${esc(c.id)}">${esc(c.title)} · ${c.seen}/${c.total}</option>`));
   const practice = state.next?.practice
-    ? `<span class="practice-note">Practice: nothing due, reviewing what you're closest to forgetting ·
-       <button class="link" data-action="more">learn 10 more today</button></span>` : "";
-  $("#scope").innerHTML = `<label>Studying <select id="scope-select">${opts.join("")}</select></label>${practice}`;
+    ? `<span class="practice-note" title="Nothing is due, so you're reviewing the cards you're closest to forgetting">↻ Practice: nothing due.
+       <button class="link" data-action="more">Learn 10 new</button></span>` : "";
+  $("#scope").innerHTML = `<label>Studying <select id="scope-select" class="select">${opts.join("")}</select></label>${practice}`;
   $("#scope-select").value = state.course;
   $("#scope-select").onchange = async (e) => { await setCourse(e.target.value); loadNext(); };
 }
@@ -137,11 +141,21 @@ async function loadNext() {
   renderLearn();
 }
 
-function cardHead(card, extra = "") {
+// The pause mark, for empty and finished states.
+const GLYPH = `<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="8" y="8" width="5" height="16" rx="2.5"/><rect x="17" y="8" width="5" height="16" rx="2.5"/><circle class="dot" cx="25.5" cy="7" r="3"/></svg>`;
+const CHECK = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M13.2 21.6 7.9 16.3a1.6 1.6 0 1 1 2.3-2.3l3 3 8.6-8.6a1.6 1.6 0 1 1 2.3 2.3l-10.9 10.9z"/></svg>`;
+
+function emptyState(title, body, { glyph = GLYPH, tone = "" } = {}) {
+  return `<div class="empty"><div class="glyph ${tone}">${glyph}</div><h2>${title}</h2>${body}</div>`;
+}
+
+// crumbs: unit and focus as a path; tags: new, practice, lesson, quiz position.
+function cardHead(card, tags = "", focus = "") {
   return `
     <div class="meta">
-      <span class="tag">${esc(card.unit_title)}</span>
-      ${extra}
+      <span class="crumb">${esc(card.unit_title)}</span>
+      ${focus ? `<span class="crumb">${esc(focus)}</span>` : ""}
+      ${tags ? `<span class="tags">${tags}</span>` : ""}
     </div>
     <div class="instruction">${esc(card.instruction)}</div>
     <div class="prompt">${esc(card.prompt)}</div>
@@ -151,19 +165,21 @@ function cardHead(card, extra = "") {
 function revealBlock(card, check, answer) {
   let verdict = "";
   if (check) {
-    const label = { correct: "✓ Correct", close: "≈ Almost", wrong: "✗ Wrong" }[check.verdict];
-    const why = check.verdict === "close" ? ` <small>(${esc(check.reason)})</small>` : "";
+    const label = { correct: "✓ Correct", close: "≈ Almost", wrong: "✗ Not quite" }[check.verdict];
+    const why = check.verdict === "close" && check.reason ? ` <small>· ${esc(check.reason)}</small>` : "";
     verdict = `<div class="verdict ${check.verdict}">${label}${why}</div>`;
-    if (check.verdict !== "correct" && answer) verdict += `<div class="yours">${esc(answer)}</div>`;
+    if (check.verdict !== "correct" && answer) verdict += `<div class="yours">You wrote <s>${esc(answer)}</s></div>`;
   } else if (answer) {
-    verdict = `<div class="translation">Your answer: ${esc(answer)}</div>`;
+    verdict = `<div class="yours">Your answer: <b>${esc(answer)}</b></div>`;
   }
+  const [first, ...rest] = card.answers;
   return `
     <div class="reveal">
       ${verdict}
-      <div class="answers">${card.answers.map(esc).join(" · ")}</div>
+      <div class="answers">${esc(first)}</div>
+      ${rest.length ? `<div class="also">Also accepted: ${rest.map((a) => `<b>${esc(a)}</b>`).join(", ")}</div>` : ""}
       ${card.translation ? `<div class="translation">${esc(card.translation)}</div>` : ""}
-      ${card.note ? `<div class="note">💡 ${esc(card.note)}</div>` : ""}
+      ${card.note ? `<div class="note"><span class="label">Note</span>${esc(card.note)}</div>` : ""}
       ${card.example ? `<div class="example">${esc(card.example)}${card.example_translation ? ` <i>(${esc(card.example_translation)})</i>` : ""}</div>` : ""}
     </div>`;
 }
@@ -171,8 +187,7 @@ function revealBlock(card, check, answer) {
 function gradeButtons(suggested) {
   const labels = [["Again", "forgot"], ["Hard", "struggled"], ["Good", "recalled"], ["Easy", "instant"]];
   return `<div class="grades">${labels.map(([name, hint], i) =>
-    `<button class="g${i + 1}${suggested === i + 1 ? " suggested" : ""}" data-grade="${i + 1}">${name}<small>${hint}</small></button>`).join("")}</div>
-    <div class="kbd">1–4 to grade · enter = ${["", "Again", "Hard", "Good", "Easy"][suggested]}</div>`;
+    `<button class="g${i + 1}${suggested === i + 1 ? " suggested" : ""}" data-grade="${i + 1}"><kbd>${i + 1}</kbd>${name}<small>${hint}</small></button>`).join("")}</div>`;
 }
 
 // chars: extra characters the course needs (ä, ö…) as buttons, for phone keyboards.
@@ -181,66 +196,74 @@ function inputBlock(id, chars = [], action = "submit", label = "Check") {
     ? `<div class="chars">${chars.map((c) => `<button data-char="${esc(c)}">${esc(c)}</button>`).join("")}</div>`
     : "";
   return `
-    <input id="${id}" class="input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Your answer…">
+    <input id="${id}" class="input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type your answer">
     ${keys}
-    <button class="primary" data-action="${action}">${label}</button>`;
+    <button class="primary" data-action="${action}">${label} <kbd>↵</kbd></button>`;
 }
 
 function renderLearn() {
   const el = $("#card");
   const { card, next } = state;
+  // Deal the card in when it changes.
+  if (card?.id !== el.dataset.card) {
+    el.dataset.card = card?.id || "";
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+  }
   if (!card && next?.no_courses) {
-    el.innerHTML = `<div class="empty"><h2>No courses yet</h2>
-      <p>Make one about anything, in a terminal:</p>
+    el.innerHTML = emptyState("No courses yet", `
+      <p>Make one about anything with Claude, in a terminal:</p>
       <p><code>tauko gen "Kubernetes networking"</code></p>
-      <p>or install one from the gallery: <code>tauko add</code></p></div>`;
+      <p>or pick one from the gallery: <code>tauko add</code></p>`);
     return;
   }
   if (!card) {
-    el.innerHTML = `<div class="empty"><h2>Nothing to study here yet</h2>
-      <p>Learn more cards today, or pick another course above.</p>
-      <p><button class="primary" data-action="more">Learn 10 more today</button></p></div>`;
+    const when = next?.next_due ? `The next card is due ${relTime(next.next_due)}.` : "Nothing is scheduled yet.";
+    el.innerHTML = emptyState("All caught up", `
+      <p>${when} Learn some new cards now, or pick another course above.</p>
+      <button class="primary" data-action="more">Learn 10 new cards</button>`, { glyph: CHECK, tone: "good" });
     return;
   }
-  const extra = (next.is_new ? `<span class="tag new">new</span>` : "")
-    + (next.practice ? `<span class="tag practice">practice</span>` : "")
-    + (next.focus ? `<span class="tag">${esc(next.focus)}</span>` : "");
+  const tags = (next.is_new ? `<span class="tag new">new</span>` : "")
+    + (next.practice ? `<span class="tag practice">practice</span>` : "");
+  const keys = (pairs) => `<div class="keys">${pairs.map(([k, label]) => `<span><kbd>${k}</kbd>${label}</span>`).join("")}</div>`;
   // A lesson: read it, then straight on to its quick check.
   if (card.kind === "lesson") {
-    el.innerHTML = cardHead(card, `<span class="tag lesson">lesson</span>` + extra)
+    el.innerHTML = cardHead(card, `<span class="tag lesson">lesson</span>` + tags, next.focus)
       + `<div class="lesson-body">${esc(card.body)}</div>`
-      + (card.example ? `<div class="example">${esc(card.example)}${card.example_translation ? ` <i>(${esc(card.example_translation)})</i>` : ""}</div>` : "")
+      + (card.example ? `<div class="example">${esc(card.example)}${card.example_translation ? ` <i>· ${esc(card.example_translation)}</i>` : ""}</div>` : "")
       + explanationBlock()
-      + `<div class="answer-area"><button class="primary" data-action="read">Got it → quick check</button>
-         <button class="link" data-action="explain">${state.explaining ? "Asking Claude…" : "Explain differently"}</button>
-         <div class="kbd">enter: got it</div></div>`;
+      + `<div class="answer-area"><button class="primary" data-action="read">Got it, quick check <kbd>↵</kbd></button>
+         <div class="card-actions"><button class="ghost" data-action="explain"><kbd>E</kbd>${state.explaining ? "Asking Claude…" : "Explain differently"}</button></div></div>`;
     return;
   }
-  let body = cardHead(card, extra);
+  let body = cardHead(card, tags, next.focus);
   if (state.phase === "ask") {
     body += `<div class="answer-area">${state.mode === "type"
       ? inputBlock("answer", next.chars || [], "submit", card.self_grade ? "Compare" : "Check")
-      : `<button class="primary" data-action="reveal">Show answer</button><div class="kbd">space to reveal</div>`}</div>`;
+      : `<button class="primary" data-action="reveal">Show answer <kbd>space</kbd></button>`}</div>`;
   } else {
     const suggested = state.check ? state.check.suggested_rating : 3;
     body += revealBlock(card, state.check, state.answer);
     body += explanationBlock();
     body += `<div class="answer-area">${gradeButtons(suggested)}
       <div class="card-actions">
-        <button class="link" data-action="explain">${state.explaining ? "Asking Claude…" : "Explain this"}</button>
-        <button class="link" data-action="retire">I know this: don't show again</button>
-      </div></div>`;
+        <button class="ghost" data-action="explain"><kbd>E</kbd>${state.explaining ? "Asking Claude…" : "Explain this"}</button>
+        <button class="ghost" data-action="retire"><kbd>K</kbd>I know this</button>
+      </div>
+      ${keys([["↵", ["", "Again", "Hard", "Good", "Easy"][suggested]]])}</div>`;
   }
   if (state.lastRetired) {
-    body = `<div class="retired-note">✓ Retired “${esc(state.lastRetired.prompt)}” <button class="link" data-action="undo-retire">undo</button></div>` + body;
+    body = `<div class="retired-note">✓ Retired “${esc(state.lastRetired.prompt)}”. It won't come back. <button class="link" data-action="undo-retire">Undo</button></div>` + body;
   }
   el.innerHTML = body;
   if (state.phase === "ask" && state.mode === "type") $("#answer").focus();
 }
 
 function explanationBlock() {
-  if (state.explaining) return `<div class="note">Asking Claude…</div>`;
-  return state.explanation ? `<div class="note why"><b>Why</b><br>${esc(state.explanation)}</div>` : "";
+  if (state.explaining) return `<div class="note why"><span class="label">Why</span><span class="thinking">Asking Claude</span></div>`;
+  return state.explanation ? `<div class="note why"><span class="label">Why</span>${esc(state.explanation)}</div>` : "";
 }
 
 // explain asks Claude why the answer is what it is, for what you typed.
@@ -331,12 +354,13 @@ async function renderQuizStart() {
     return `<optgroup label="${esc(c.title)}"><option value="course:${esc(c.id)}">All of ${esc(c.title)}</option>${us}</optgroup>`;
   }).join("");
   $("#quiz").innerHTML = `
-    <div class="instruction">Self-quiz</div>
-    <div class="prompt">10 questions, typed, scored.</div>
-    <div class="hint">Mostly drills. Answers also feed your review schedule.</div>
+    <div class="meta"><span class="crumb">Self-quiz</span></div>
+    <div class="instruction">Test yourself</div>
+    <div class="prompt">Ten questions, typed and scored.</div>
+    <div class="hint">Your answers also count toward your review schedule.</div>
     <div class="answer-area">
-      <select id="quiz-unit" class="input"><option value="">Everything</option>${opts}</select>
-      <button class="primary" data-action="quiz-start">Start</button>
+      <select id="quiz-unit" class="input select"><option value="">Everything</option>${opts}</select>
+      <button class="primary" data-action="quiz-start">Start the quiz</button>
     </div>`;
   if (state.quizUnit) $("#quiz-unit").value = "unit:" + state.quizUnit;
 }
@@ -355,19 +379,21 @@ function renderQuiz() {
   const el = $("#quiz");
   if (q.i >= q.cards.length) {
     const pct = Math.round(100 * q.score / q.cards.length);
-    const word = pct >= 90 ? "Excellent!" : pct >= 75 ? "Good!" : pct >= 50 ? "Getting there." : "More practice needed.";
-    el.innerHTML = `<div class="empty"><div class="instruction">Score</div>
-      <div class="score">${q.score}/${q.cards.length}</div><h2>${word}</h2>
-      <p><button class="primary" data-action="quiz-again">New quiz</button></p></div>`;
+    const word = pct >= 90 ? "Excellent" : pct >= 75 ? "Good work" : pct >= 50 ? "Getting there" : "Worth another round";
+    el.innerHTML = `<div class="empty"><div class="instruction">Your score</div>
+      <div class="score">${q.score}<small>/${q.cards.length}</small></div><h2>${word}</h2>
+      <p>The ones you missed come back sooner in your reviews.</p>
+      <button class="primary" data-action="quiz-again">New quiz</button></div>`;
     return;
   }
   const card = q.cards[q.i];
-  let body = cardHead(card, `<span class="tag">${q.i + 1} / ${q.cards.length}</span>`);
+  let body = cardHead(card, `<span class="tag">${q.i + 1} / ${q.cards.length}</span>`)
+    + `<div class="bar thin" style="margin-top:14px"><div style="width:${Math.round(100 * q.i / q.cards.length)}%"></div></div>`;
   if (q.phase === "ask") {
     body += `<div class="answer-area">${inputBlock("quiz-answer")}</div>`;
   } else {
     body += revealBlock(card, q.check, q.answer);
-    body += `<div class="answer-area"><button class="primary" data-action="quiz-next">Next →</button><div class="kbd">enter for next</div></div>`;
+    body += `<div class="answer-area"><button class="primary" data-action="quiz-next">Next <kbd>↵</kbd></button></div>`;
   }
   el.innerHTML = body;
   if (q.phase === "ask") $("#quiz-answer").focus();
@@ -399,22 +425,23 @@ async function nextQuiz() {
 // ---------- units ----------
 
 async function renderUnits() {
-  const [courses, units, retired] = await Promise.all([api("GET", "/api/courses"), api("GET", "/api/units"), api("GET", "/api/retired")]);
+  const [courses, units, retired, settings] = await Promise.all([
+    api("GET", "/api/courses"), api("GET", "/api/units"), api("GET", "/api/retired"), api("GET", "/api/settings")]);
   const retiredList = (course) => {
     const rs = retired.filter((r) => r.course === course);
     if (!rs.length) return "";
-    return `<details class="unit"><summary>Retired cards (${rs.length}): you marked these "I know this"</summary>
+    return `<details class="retired"><summary>Retired cards (${rs.length}): you marked these "I know this"</summary>
       ${rs.map((r) => `<div class="retired-row"><span>${esc(r.prompt)} → <b>${esc(r.answer)}</b></span>
-        <button class="link" data-unretire="${esc(r.id)}">bring back</button></div>`).join("")}</details>`;
+        <button class="link" data-unretire="${esc(r.id)}">Bring back</button></div>`).join("")}</details>`;
   };
-  const unitCard = (u, focusLabel) => {
+  const unitRow = (u, focusLabel) => {
     const pct = u.total ? Math.round(100 * u.seen / u.total) : 0;
     const quiz = u.best_quiz != null ? ` · quiz ${Math.round(u.best_quiz * 100)}%` : "";
     const sub = [u.subtitle, u.focus].filter(Boolean).map(esc).join(" · ");
     return `<div class="unit">
       <div class="unit-head"><b>${esc(u.title)}</b><span>${u.seen}/${u.total}${u.due ? ` · ${u.due} due` : ""}${quiz}</span></div>
       ${sub ? `<div class="hint">${sub}</div>` : ""}
-      <div class="bar"><div style="width:${pct}%"></div></div>
+      <div class="bar thin"><div style="width:${pct}%"></div></div>
       ${u.focus_note ? `<details><summary>${esc(focusLabel || "Notes")}</summary>${esc(u.focus_note)}</details>` : ""}
       ${(u.lessons || []).map((l) => `<details><summary>${l.read ? "✓" : "○"} Lesson: ${esc(l.title)}</summary>${esc(l.body)}${l.example ? `<br><i>${esc(l.example)}</i>` : ""}</details>`).join("")}
       <div class="unit-actions">
@@ -423,23 +450,33 @@ async function renderUnits() {
       </div>
     </div>`;
   };
-  $("#units").innerHTML = courses.map((c) => `
-    <div class="course-head">
-      <h2>${esc(c.title)}${c.title_en && c.title_en !== c.title ? ` <small>${esc(c.title_en)}</small>` : ""}</h2>
-      <span>${c.seen}/${c.total} · ${c.due} due</span>
-    </div>
-    ${c.description ? `<div class="hint">${esc(c.description)}</div>` : ""}
-    <button class="primary" data-learn-course="${esc(c.id)}">Practice this course</button>
-    ${units.filter((u) => u.course === c.id).map((u) => unitCard(u, c.focus_label)).join("")}
-    ${retiredList(c.id)}
-  `).join("") + `<button class="primary" data-learn-course="">Practice everything</button>`;
+  if (!courses.length) {
+    $("#units").innerHTML = `<div class="course">${emptyState("No courses yet", `
+      <p>Make one with <code>tauko gen "topic"</code> or install one with <code>tauko add</code>.</p>`)}</div>`;
+    return;
+  }
+  $("#units").innerHTML = courses.map((c) => {
+    const pct = c.total ? Math.round(100 * c.seen / c.total) : 0;
+    const active = settings.active_course === c.id;
+    return `<section class="course${active ? " active" : ""}">
+      <div class="course-head">
+        <h2>${esc(c.title)}${c.title_en && c.title_en !== c.title ? `<small>${esc(c.title_en)}</small>` : ""}</h2>
+        <button class="secondary" data-learn-course="${esc(c.id)}">${active ? "Studying ✓" : "Study this"}</button>
+      </div>
+      ${c.description ? `<p class="course-desc">${esc(c.description)}</p>` : ""}
+      <div class="course-stats"><span><b>${c.seen}</b> of ${c.total} seen</span><span><b>${c.due}</b> due</span><span><b>${pct}%</b></span></div>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+      ${units.filter((u) => u.course === c.id).map((u) => unitRow(u, c.focus_label)).join("")}
+      ${retiredList(c.id)}
+    </section>`;
+  }).join("") + `<button class="primary everything" data-learn-course="">Study all courses together</button>`;
 }
 
 // ---------- navigation & input ----------
 
 function show(view) {
   state.view = view;
-  document.querySelectorAll("nav > button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  document.querySelectorAll("nav [data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   for (const v of ["learn", "quiz", "units"]) $(`#view-${v}`).hidden = v !== view;
   if (view === "learn") loadNext();
   if (view === "quiz") { state.quiz = null; renderQuizStart(); }

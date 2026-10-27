@@ -1,6 +1,6 @@
 // Minimal service worker: caches the app shell so the PWA installs and opens offline.
 // API calls always go to the network.
-const CACHE = "tauko-v1";
+const CACHE = "tauko-v2";
 const SHELL = ["./", "index.html", "app.js", "style.css", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {
