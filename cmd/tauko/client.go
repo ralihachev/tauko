@@ -97,13 +97,21 @@ func (c *client) do(method, path string, body, out any) error {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("%s %s: %s: %s", method, path, resp.Status, strings.TrimSpace(string(msg)))
+		return &statusError{code: resp.StatusCode, msg: fmt.Sprintf("%s %s: %s: %s", method, path, resp.Status, strings.TrimSpace(string(msg)))}
 	}
 	if out == nil {
 		return nil
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }
+
+// statusError is a server reply other than 200 OK.
+type statusError struct {
+	code int
+	msg  string
+}
+
+func (e *statusError) Error() string { return e.msg }
 
 func (c *client) line(prompt string) (string, bool) {
 	fmt.Print(prompt)

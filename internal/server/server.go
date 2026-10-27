@@ -32,7 +32,10 @@ type Config struct {
 	Gen     func(ctx context.Context, topic, level string, progress func(string)) (courseID string, err error)
 	Add     func(ctx context.Context, id string) error // install a gallery course
 	Gallery func(ctx context.Context) ([]GalleryEntry, error)
-	Reload  func() (*content.Library, error) // reloads courses after one is added
+	Reload  func() (*content.Library, []string, error) // reloads courses after one is added, with warnings
+
+	Version string                                    // this build's version, for GET /api/version
+	Latest  func(ctx context.Context) (string, error) // the latest release; nil turns the update check off
 }
 
 // Server handles API requests.
@@ -46,7 +49,12 @@ type Server struct {
 	signal Signal
 	job    *Job
 
-	libMu sync.RWMutex
+	latest        string // the latest release, from the update check
+	latestChecked time.Time
+	latestRunning bool
+
+	libMu    sync.RWMutex
+	warnings []string // courses that didn't load; replaced on reload
 }
 
 // library is the loaded courses; adding a course swaps it.
@@ -54,6 +62,13 @@ func (s *Server) library() *content.Library {
 	s.libMu.RLock()
 	defer s.libMu.RUnlock()
 	return s.lib
+}
+
+// libWarnings lists the courses that didn't load.
+func (s *Server) libWarnings() []string {
+	s.libMu.RLock()
+	defer s.libMu.RUnlock()
+	return s.warnings
 }
 
 // Signal is the Claude Code busy/idle state reported by hooks.
@@ -67,7 +82,7 @@ func New(lib *content.Library, st *store.Store, cfg Config) *Server {
 	if cfg.NewPerDay <= 0 {
 		cfg.NewPerDay = 20
 	}
-	return &Server{lib: lib, store: st, cfg: cfg, now: time.Now}
+	return &Server{lib: lib, store: st, cfg: cfg, now: time.Now, warnings: cfg.Warnings}
 }
 
 // Handler returns the HTTP handler: API under /api/, PWA files at /.
@@ -92,6 +107,8 @@ func (s *Server) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/courses/add", s.handleAddCourse)
 	mux.HandleFunc("POST /api/courses/gen", s.handleGenCourse)
 	mux.HandleFunc("GET /api/job", s.handleGetJob)
+	mux.HandleFunc("POST /api/reload", s.handleReload)
+	mux.HandleFunc("GET /api/version", s.handleVersion)
 	mux.HandleFunc("GET /api/signal", s.handleGetSignal)
 	mux.HandleFunc("POST /api/signal", s.handleSetSignal)
 	mux.Handle("GET /", http.FileServerFS(static))
@@ -572,7 +589,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
-	writeJSON(w, map[string]any{"stats": st, "due": len(dueIDs), "new_left": newLeft, "cards": len(s.library().Cards), "warnings": s.cfg.Warnings})
+	writeJSON(w, map[string]any{"stats": st, "due": len(dueIDs), "new_left": newLeft, "cards": len(s.library().Cards), "warnings": s.libWarnings()})
 }
 
 type quizRequest struct {

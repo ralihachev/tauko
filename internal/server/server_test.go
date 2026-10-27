@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -344,11 +345,12 @@ func TestGenerateACourseFromAClient(t *testing.T) {
 		<-release
 		return "ph", nil
 	}
-	testServer.cfg.Reload = func() (*content.Library, error) {
-		return content.Load(fstest.MapFS{
+	testServer.cfg.Reload = func() (*content.Library, []string, error) {
+		lib, err := content.Load(fstest.MapFS{
 			"c/ph/course.json":   {Data: []byte(`{"id": "ph", "title": "Photography"}`)},
 			"c/ph/decks/01.json": {Data: []byte(`{"id": "ph-01", "title": "Exposure", "drills": [{"id": "ph-q1", "type": "qa", "prompt": "Depth of field?", "answers": ["aperture"]}]}`)},
 		}, "c")
+		return lib, nil, err
 	}
 
 	var job Job
@@ -385,7 +387,7 @@ func TestGenerateACourseFromAClient(t *testing.T) {
 func TestFailedJobAndGallery(t *testing.T) {
 	h := newTestServer(t)
 	testServer.cfg.Add = func(ctx context.Context, id string) error { return errors.New("no course " + id) }
-	testServer.cfg.Reload = func() (*content.Library, error) { t.Fatal("reloaded after a failure"); return nil, nil }
+	testServer.cfg.Reload = func() (*content.Library, []string, error) { t.Fatal("reloaded after a failure"); return nil, nil, nil }
 	testServer.cfg.Gallery = func(ctx context.Context) ([]GalleryEntry, error) {
 		return []GalleryEntry{{ID: "go", Title: "Go"}, {ID: "spanish", Title: "Español"}}, nil
 	}
@@ -411,5 +413,97 @@ func TestFailedJobAndGallery(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/courses/gen", strings.NewReader(`{"topic": "x"}`)))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("gen without Claude: %d", rec.Code)
+	}
+}
+
+func TestVersionAndUpdateCheck(t *testing.T) {
+	h := newTestServer(t)
+	testServer.cfg.Version = "v0.5.2"
+	var checks atomic.Int32
+	testServer.cfg.Latest = func(ctx context.Context) (string, error) {
+		checks.Add(1)
+		return "v0.6.0", nil
+	}
+
+	// The first call starts the check in the background; a later one reports the update.
+	var v versionResponse
+	for range 200 {
+		call(t, h, "GET", "/api/version", "", &v)
+		if v.Update != "" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if v.Version != "v0.5.2" || v.Update != "v0.6.0" {
+		t.Fatalf("version = %+v", v)
+	}
+	if n := checks.Load(); n != 1 {
+		t.Errorf("checked %d times within a day, want 1", n)
+	}
+
+	// Up to date: no update to report.
+	testServer.cfg.Version = "v0.6.0"
+	v = versionResponse{}
+	call(t, h, "GET", "/api/version", "", &v)
+	if v.Update != "" {
+		t.Errorf("update = %q for the latest version", v.Update)
+	}
+}
+
+func TestReloadKeepsTheActiveCourse(t *testing.T) {
+	h := newTestServer(t)
+	call(t, h, "POST", "/api/settings", `{"active_course": "go"}`, nil)
+	testServer.cfg.Reload = func() (*content.Library, []string, error) {
+		lib, err := content.Load(fstest.MapFS{
+			"c/go/course.json":   {Data: []byte(`{"id": "go", "title": "Go"}`)},
+			"c/go/decks/01.json": {Data: []byte(`{"id": "go-01", "title": "Channels", "drills": [{"id": "go-q1", "type": "qa", "prompt": "Send on a nil channel?", "answers": ["blocks forever"]}]}`)},
+			"c/ph/course.json":   {Data: []byte(`{"id": "ph", "title": "Photography"}`)},
+			"c/ph/decks/01.json": {Data: []byte(`{"id": "ph-01", "title": "Exposure", "drills": [{"id": "ph-q1", "type": "qa", "prompt": "Depth of field?", "answers": ["aperture"]}]}`)},
+		}, "c")
+		return lib, []string{"skipped course broken: no course.json"}, err
+	}
+
+	var got struct {
+		Courses  int      `json:"courses"`
+		Warnings []string `json:"warnings"`
+	}
+	call(t, h, "POST", "/api/reload", "", &got)
+	if got.Courses != 2 || len(got.Warnings) != 1 {
+		t.Fatalf("reload = %+v", got)
+	}
+	var next nextResponse
+	call(t, h, "GET", "/api/next", "", &next)
+	if next.Scope != "go" {
+		t.Errorf("scope after reload = %q, want go", next.Scope)
+	}
+	var stats struct {
+		Cards    int      `json:"cards"`
+		Warnings []string `json:"warnings"`
+	}
+	call(t, h, "GET", "/api/stats", "", &stats)
+	if stats.Cards != 2 || len(stats.Warnings) != 1 {
+		t.Errorf("stats after reload = %+v", stats)
+	}
+}
+
+func TestNewer(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{
+		{"v0.6.0", "v0.5.2", true},
+		{"v0.5.10", "v0.5.9", true},
+		{"v0.5.2", "v0.5.2", false},
+		{"v0.5.1", "v0.5.2", false},
+		{"v1.0.0", "dev", false},
+		{"", "v0.5.2", false},
+		{"0.6.0", "v0.5.2", true},
+	} {
+		if got := Newer(c.a, c.b); got != c.want {
+			t.Errorf("Newer(%q, %q) = %v", c.a, c.b, got)
+		}
+	}
+	if !SameMinor("v0.5.2", "0.5.0") || SameMinor("v0.5.2", "0.4.9") || SameMinor("dev", "dev") {
+		t.Error("SameMinor")
 	}
 }

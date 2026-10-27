@@ -29,6 +29,7 @@ usage:
   tauko setup                                  install the Claude Code pane, start the server
   tauko claude [claude flags…]                 start Claude Code in fullscreen, so the pane docks beside the chat
   tauko doctor                                 check the setup and say how to fix it
+  tauko update                                 upgrade to the latest release (reruns the installer)
   tauko uninstall [-purge]                     remove the pane and stop the server
   tauko serve [-addr 127.0.0.1:8787] [-db ~/.tauko/tauko.db] [-new-per-day 20] [-courses dir]
   tauko learn [-mode tap|type] [-course id] [-unit id]   review due + new cards (default command)
@@ -43,12 +44,13 @@ usage:
   tauko stats                                  today's numbers
   tauko status                                 one line for the Claude Code status line
   tauko ensure                                 start the server in the background unless it runs
-  tauko restart                                restart the server (after adding or editing a course)
+  tauko restart                                restart the server (after editing a course by hand)
   tauko signal busy|idle                       called from Claude Code hooks
 
 env:
   TAUKO_URL    server URL for clients (default http://127.0.0.1:8787)
   TAUKO_TOKEN  shared secret; required by the server when set
+  TAUKO_NO_UPDATE_CHECK=1  the server doesn't ask GitHub once a day for a newer release
 `
 
 func main() {
@@ -90,6 +92,8 @@ func main() {
 		}
 	case "setup":
 		err = setup(args)
+	case "update":
+		err = update()
 	case "claude":
 		err = launchClaude(args)
 	case "doctor":
@@ -130,18 +134,19 @@ func serve(args []string) error {
 		base = []content.Source{{FS: os.DirFS(*coursesDir), Root: "."}}
 	}
 	// A broken course of the user's is skipped (and reported), never fatal.
-	var warnings []string
-	load := func() (*content.Library, map[string]error, error) {
-		return content.LoadTolerant(base, content.Source{FS: os.DirFS(*userDir), Root: "."})
+	load := func() (*content.Library, []string, error) {
+		lib, skipped, err := content.LoadTolerant(base, content.Source{FS: os.DirFS(*userDir), Root: "."})
+		var warnings []string
+		for dir, err := range skipped {
+			w := fmt.Sprintf("skipped course %s: %v", filepath.Join(*userDir, dir), err)
+			log.Printf("tauko: %s", w)
+			warnings = append(warnings, w)
+		}
+		return lib, warnings, err
 	}
-	lib, skipped, err := load()
+	lib, warnings, err := load()
 	if err != nil {
 		return fmt.Errorf("load courses: %w", err)
-	}
-	for dir, err := range skipped {
-		w := fmt.Sprintf("skipped course %s: %v", filepath.Join(*userDir, dir), err)
-		log.Printf("tauko: %s", w)
-		warnings = append(warnings, w)
 	}
 	if err := os.MkdirAll(filepath.Dir(*dbPath), 0o755); err != nil {
 		return err
@@ -153,7 +158,10 @@ func serve(args []string) error {
 	defer st.Close()
 
 	token := os.Getenv("TAUKO_TOKEN")
-	cfg := server.Config{NewPerDay: *newPerDay, Token: token, Warnings: warnings}
+	cfg := server.Config{NewPerDay: *newPerDay, Token: token, Warnings: warnings, Version: version}
+	if os.Getenv("TAUKO_NO_UPDATE_CHECK") == "" {
+		cfg.Latest = latestRelease
+	}
 	if llm.Available() {
 		cfg.Explain = llm.Claude("")
 		cfg.Gen = func(ctx context.Context, topic, level string, progress func(string)) (string, error) {
@@ -170,13 +178,7 @@ func serve(args []string) error {
 		err := getJSON(envOr("TAUKO_GALLERY_INDEX", galleryIndex), &entries)
 		return entries, err
 	}
-	cfg.Reload = func() (*content.Library, error) {
-		lib, skipped, err := load()
-		for dir, err := range skipped {
-			log.Printf("tauko: skipped course %s: %v", filepath.Join(*userDir, dir), err)
-		}
-		return lib, err
-	}
+	cfg.Reload = load
 	srv := server.New(lib, st, cfg)
 	if token == "" && !isLoopback(*addr) {
 		return errors.New("refusing to listen on a non-loopback address without TAUKO_TOKEN")

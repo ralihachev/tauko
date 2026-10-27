@@ -12,11 +12,16 @@ import (
 
 // ensure starts `tauko serve` detached in the background unless a server already
 // answers. It is meant for a Claude Code SessionStart hook: fast when the server is
-// up, and the server outlives the session that started it.
+// up, and the server outlives the session that started it. A server left running by
+// an older tauko is replaced, so an upgrade takes effect without `tauko restart`.
 func ensure() error {
 	c := newClient(300 * time.Millisecond)
 	if c.up() {
-		return nil
+		if !outdated(c) {
+			return nil
+		}
+		stopServer()
+		time.Sleep(300 * time.Millisecond)
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -49,6 +54,16 @@ func ensure() error {
 		}
 	}
 	return fmt.Errorf("server did not come up; see %s", filepath.Join(dir, "serve.log"))
+}
+
+// outdated reports whether the local server is a different release than this binary.
+// A local "dev" build never replaces a server, and a remote one (TAUKO_URL) is left alone.
+func outdated(c *client) bool {
+	if os.Getenv("TAUKO_URL") != "" || version == "dev" {
+		return false
+	}
+	v, err := serverVersion(c)
+	return err == nil && v.Version != version
 }
 
 func (c *client) up() bool {

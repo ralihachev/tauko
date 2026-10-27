@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 
 const PANE = {
   plugin: 'tauko',
@@ -398,5 +399,51 @@ test('k retires a card after answering, and undo brings it back', async ($, on) 
   await ui.press({ key: 'undo' })
   expect(posts.find(p => p.url.endsWith('/api/unretire'))?.body).toEqual({ card_id: 'b1-01-g01' })
   expect(await ui.find({ type: 'Text', text: /Retired/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+// Session start with a fake server whose /api/version answers with version.
+type Engine = Parameters<TestBody>[0]
+type On = Parameters<TestBody>[1]
+
+async function startWith($: Engine, on: On, version: (() => ReturnType<typeof json>) | null) {
+  on('env.get', () => ({ value: '/home/u' }))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('http.fetch', (_, e) => {
+    if (e.url.endsWith('/api/version')) {
+      return version ? version() : { value: { status: 404, ok: false, headers: {}, text: '404 page not found' } }
+    }
+    if (e.url.includes('/api/next')) return json({ card: CARD, is_new: false, due: 1, new_left: 0 })
+    if (e.url.endsWith('/api/job')) return json(null)
+    return json({ due: 1, new_left: 0, stats: { reviews_today: 0, streak_days: 0 } })
+  })
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('command.register', () => ({ value: { command: 'tauko' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await settle()
+  await $.command.run({ command: 'tauko', args: '' })
+  return $.ui.mount({ ...PANE, surface: 'terminal' })
+}
+
+test('a pane older than the server asks for a Claude Code restart', async ($, on) => {
+  const ui = await startWith($, on, () => json({ version: 'v0.6.0' }))
+  expect((await ui.find({ type: 'Text', text: /restart Claude Code/ }))?.text).toContain('updated to v0.6.0')
+  await ui.press({ key: 'dismiss-notice' })
+  expect(await ui.find({ type: 'Text', text: /restart Claude Code/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a server without /api/version is older than the pane', async ($, on) => {
+  const ui = await startWith($, on, null)
+  expect((await ui.find({ type: 'Text', text: /older than this pane/ }))?.text).toContain('tauko update')
+  await ui.unmount()
+})
+
+test('a newer release is mentioned; the same release says nothing', async ($, on) => {
+  const ui = await startWith($, on, () => json({ version: 'v0.5.2', update: 'v0.5.3' }))
+  expect((await ui.find({ type: 'Text', text: /is out/ }))?.text).toContain('tauko v0.5.3 is out')
+  expect(await ui.find({ type: 'Text', text: /restart Claude Code|older than/ })).toBeUndefined()
   await ui.unmount()
 })

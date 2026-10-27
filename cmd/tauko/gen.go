@@ -155,20 +155,20 @@ func gen(args []string) error {
 	}
 	_, err := runGen(context.Background(), generator(llm.Claude(*model)), genOptions{
 		Topic: topic, Level: *level, Units: *units, Cards: *cards, From: *from, ID: *id,
-		Lang: *lang, Yes: *yes, DryRun: *dry, Dir: *dir, Restart: restartIfDefault(*dir),
+		Lang: *lang, Yes: *yes, DryRun: *dry, Dir: *dir, Reload: reloadIfDefault(*dir),
 	})
 	return err
 }
 
-// restartIfDefault reloads the server only when dir is the folder it serves.
-func restartIfDefault(dir string) func() error {
+// reloadIfDefault reloads the server only when dir is the folder it serves.
+func reloadIfDefault(dir string) func() error {
 	if abs, _ := filepath.Abs(dir); abs != filepath.Join(dataDir(), "courses") {
 		return nil
 	}
-	return restartServer
+	return reloadServer
 }
 
-// restartServer reloads courses by restarting the local server.
+// restartServer stops the local server and starts it again with this binary.
 func restartServer() error {
 	if newClient(300 * time.Millisecond).up() {
 		stopServer()
@@ -182,7 +182,7 @@ type genOptions struct {
 	Units, Cards                 int
 	Yes, DryRun                  bool
 	Dir                          string       // where courses are installed
-	Restart                      func() error // reloads the server after installing
+	Reload                       func() error // loads the course into the server after installing
 	Progress                     func(string) // told each step, for the server's job status
 }
 
@@ -264,11 +264,11 @@ func runGen(ctx context.Context, model generator, o genOptions) (string, error) 
 		return "", err
 	}
 	ok("installed " + filepath.Join(o.Dir, courseID))
-	if o.Restart != nil {
-		if err := o.Restart(); err != nil {
+	if o.Reload != nil {
+		if err := o.Reload(); err != nil {
 			return courseID, err
 		}
-		ok("server restarted")
+		ok("loaded into the server")
 	}
 	fmt.Printf("\nStudy it: press %sc%s in the tauko pane, or run %stauko course %s%s\n", bold, reset, bold, courseID, reset)
 	fmt.Printf("%s☕ tauko is free. If it helps you: https://ko-fi.com/romanslab%s\n", dim, reset)

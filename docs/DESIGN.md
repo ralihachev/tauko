@@ -130,6 +130,16 @@ Content is not in the DB. A card without a `card_state` row is *new*.
   the background and reloads its courses in place, then the new course opens in the pane
 - It's also what a new learner sees before any course is installed
 
+**v0.5.2: staying up to date** (done)
+- `GET /api/version`: the pane compares it with its own version and says when a Claude Code
+  session still has the old pane, or the server is older than the pane
+- `tauko ensure` replaces a server left running by another release, so an upgrade takes effect
+  at the next session start
+- A daily update check (GitHub's latest release, off with `TAUKO_NO_UPDATE_CHECK=1`); the pane and
+  `tauko doctor` mention a newer release, and `tauko update` reruns the installer
+- `tauko gen` and `tauko add` load the new course with `POST /api/reload` instead of restarting
+  the server
+
 **Product (if it works for me)**
 - Multi-user accounts, sync, hosted
 - Content packs: languages, certifications, "your own codebase"

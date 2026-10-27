@@ -77,6 +77,9 @@ export type Job = {
   course_title?: string
 }
 
+// A line above the card about versions: a stale pane, an old server, or a newer release.
+export type Notice = { tone: 'warning' | 'info'; text: string }
+
 declare module 'claude-code' {
   interface PluginState {
     tauko: {
@@ -92,6 +95,7 @@ declare module 'claude-code' {
       isAdding: boolean
       gallery: Shaped<Gallery>
       job: Shaped<Job | null>
+      notice: Shaped<Notice | null>
     }
   }
 }

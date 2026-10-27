@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -36,5 +38,26 @@ func TestStripLegacyLeavesOtherStatusLine(t *testing.T) {
 	settings := map[string]any{"statusLine": map[string]any{"type": "command", "command": "starship"}}
 	if _, n := stripLegacy(settings); n != 0 || settings["statusLine"] == nil {
 		t.Errorf("a non-tauko status line was touched")
+	}
+}
+
+// The pane compares its version with the server's, so it must match the plugin manifest.
+func TestPaneVersionMatchesPlugin(t *testing.T) {
+	raw, err := os.ReadFile("../../claude-mod/.claude-plugin/plugin.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	src, err := os.ReadFile("../../claude-mod/hooks/register.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "export const PANE_VERSION = '" + manifest.Version + "'"; !strings.Contains(string(src), want) {
+		t.Errorf("register.tsx lacks %q (plugin.json says %s)", want, manifest.Version)
 	}
 }

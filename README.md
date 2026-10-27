@@ -45,7 +45,8 @@ the pane docked beside the chat.)
 
 The installer downloads a single ~5 MB binary for your OS and CPU, verifies its checksum, puts it in
 `~/.local/bin` (no sudo), starts a small local server and installs the Claude Code plugin. Nothing is
-sent anywhere: no account, no telemetry. `tauko doctor` checks the setup at any time.
+sent anywhere: no account, no telemetry. `tauko doctor` checks the setup at any time, and `tauko update`
+upgrades it.
 
 <details>
 <summary>Other ways to install</summary>
@@ -219,7 +220,9 @@ Not noticeably. When you press enter, the plugin makes one call to the local ser
 
 **Where is my data?**
 Your progress is in `~/.tauko/tauko.db` (SQLite) and your courses are in `~/.tauko/courses/`, both on
-your machine. tauko only goes online for `tauko add` and `tauko gen` (via Claude Code).
+your machine. tauko only goes online for `tauko add` and `tauko gen` (via Claude Code), and once a day
+to ask GitHub for the latest release number, so the pane can tell you when there's an update
+(`TAUKO_NO_UPDATE_CHECK=1` turns that off). Nothing about you is sent.
 
 **Can I use it without Claude Code?**
 Yes: the terminal and browser work on their own. `tauko gen` needs Claude Code; writing courses by hand and `tauko add` don't.
@@ -251,13 +254,13 @@ Run `tauko doctor`: it checks the binary, server, plugin and your courses, and s
 | `tauko claude` | start Claude Code in fullscreen so the pane docks beside the chat; flags pass through (`tauko claude --continue`) |
 | `tauko setup` | install the Claude Code plugin and start the server (safe to re-run; also upgrades) |
 | `tauko doctor` | check everything and say how to fix it |
-| `tauko restart` | restart the server after editing a course |
+| `tauko update` | upgrade to the latest release: binary, plugin and server |
+| `tauko restart` | restart the server after editing a course by hand |
 | `tauko uninstall` | remove the plugin and stop the server; `-purge` also deletes your progress |
 
 ## Roadmap
 
 - **Diff quizzes:** questions about the code Claude just changed, to keep your own skills sharp.
-- **Generate from the pane:** `/tauko gen "topic"` without leaving Claude Code.
 - **Imports** from Anki and CSV.
 - **More places to wait:** Cursor/VS Code, build and CI waits (`tauko run make test`).
 - **Teams:** shared courses and small weekly leagues.

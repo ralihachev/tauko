@@ -139,7 +139,7 @@ func (s *Server) startJob(w http.ResponseWriter, job *Job, work func(ctx context
 
 // reload swaps in the courses on disk and makes id the active course.
 func (s *Server) reload(id string) (string, error) {
-	lib, err := s.cfg.Reload()
+	lib, warnings, err := s.cfg.Reload()
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +148,7 @@ func (s *Server) reload(id string) (string, error) {
 		return "", errors.New("the course was installed but didn't load; run tauko doctor")
 	}
 	s.libMu.Lock()
-	s.lib = lib
+	s.lib, s.warnings = lib, warnings
 	s.libMu.Unlock()
 	if err := s.store.Set(keyActiveCourse, id); err != nil {
 		return "", err

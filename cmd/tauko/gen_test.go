@@ -36,14 +36,14 @@ func TestRunGenInstallsAVerifiedCourse(t *testing.T) {
 		}
 		return fakeCourse, nil
 	}
-	restarted := false
+	reloaded := false
 	_, err := runGen(context.Background(), model, genOptions{Topic: "k8s networking", Units: 1, Cards: 2, Yes: true, Dir: dir,
-		Restart: func() error { restarted = true; return nil }}) // never the real server
+		Reload: func() error { reloaded = true; return nil }}) // never the real server
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !restarted {
-		t.Error("server not restarted after install")
+	if !reloaded {
+		t.Error("server not reloaded after install")
 	}
 	if calls != 2 {
 		t.Fatalf("model called %d times, want 2 (draft + verify)", calls)

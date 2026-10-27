@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Color, EngineInterface, Register, RenderChildren, Timer } from 'claude-code'
 
-import type { Card, Check, CourseInfo, Gallery, Job, Mode, RetiredRef, View } from '../types'
+import type { Card, Check, CourseInfo, Gallery, Job, Mode, Notice, RetiredRef, View } from '../types'
 
 // The tauko server (`tauko serve`) holds the cards and the schedule; this pane is
 // one more client of it, like the terminal and the PWA. The plugin also starts the
@@ -9,6 +9,9 @@ import type { Card, Check, CourseInfo, Gallery, Job, Mode, RetiredRef, View } fr
 const BASE = 'http://127.0.0.1:8787'
 const PANE = 'tauko'
 export const INSTALL = 'curl -fsSL https://raw.githubusercontent.com/ralihachev/tauko/main/install.sh | sh'
+// Kept equal to .claude-plugin/plugin.json (a Go test checks), so the pane can tell when
+// it and the server come from different releases.
+export const PANE_VERSION = '0.5.2'
 
 const EMPTY: View = {
   phase: 'loading',
@@ -43,6 +46,8 @@ const lastRetired = atom({ plugin: 'tauko', key: 'lastRetired' } as const, null 
 const isAdding = atom({ plugin: 'tauko', key: 'isAdding' } as const, false)
 const gallery = atom({ plugin: 'tauko', key: 'gallery' } as const, { entries: [], isLoading: false, error: '' } as Gallery, { shape: 'gallery-1' })
 const job = atom({ plugin: 'tauko', key: 'job' } as const, null as Job | null, { shape: 'job-1' })
+// A stale pane, an old server, or a newer release: one line above the card.
+const notice = atom({ plugin: 'tauko', key: 'notice' } as const, null as Notice | null, { shape: 'notice-1' })
 
 type NextResponse = {
   card: Card | null
@@ -382,6 +387,38 @@ function relTime(iso: string): string {
   return h < 24 ? `in ${h} h` : `in ${Math.round(h / 24)} d`
 }
 
+// major.minor.patch of "v0.5.2" or "0.5.2"; null for "dev" and anything else.
+function parseVersion(v: string): [number, number, number] | null {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(v)
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+}
+
+// checkVersion compares this pane with the server. The two ship together, so a different
+// major.minor means one of them wasn't updated: a Claude Code session that started before
+// an upgrade keeps the old pane, and an old binary keeps an old server.
+async function checkVersion($: EngineInterface): Promise<void> {
+  let found: Notice | null = null
+  try {
+    const v = await api<{ version: string; update?: string }>($, 'GET', '/api/version')
+    const server = parseVersion(v.version)
+    const pane = parseVersion(PANE_VERSION)
+    if (server && pane && (server[0] !== pane[0] || server[1] !== pane[1])) {
+      const serverNewer = server[0] > pane[0] || (server[0] === pane[0] && server[1] > pane[1])
+      found = serverNewer
+        ? { tone: 'warning', text: `tauko was updated to ${v.version}: restart Claude Code to load the new pane` }
+        : { tone: 'warning', text: `The tauko server (${v.version}) is older than this pane: run tauko update` }
+    } else if (v.update) {
+      found = { tone: 'info', text: `tauko ${v.update} is out: run tauko update` }
+    }
+  } catch (err) {
+    // Servers before v0.5.2 have no /api/version; a server that's down is reported elsewhere.
+    if (String(err).startsWith('Error: 404')) {
+      found = { tone: 'warning', text: 'The tauko server is older than this pane: run tauko update' }
+    }
+  }
+  await update($, notice, () => found)
+}
+
 async function openPane($: EngineInterface, focus: boolean): Promise<void> {
   const v = await read($, view)
   if (v.phase === 'loading' || v.phase === 'offline' || v.phase === 'empty') {
@@ -401,6 +438,7 @@ export const register: Register = on => {
       const found = await ensureServer($)
       await update($, isInstalled, () => found)
       await refreshStatus($)
+      await checkVersion($)
       // A course still being made (from before a reload or another session): follow it.
       const running = await api<Job | null>($, 'GET', '/api/job').catch(() => null)
       if (running?.state === 'running') {
@@ -451,6 +489,7 @@ export const register: Register = on => {
     const retiredRef = await read($, lastRetired)
     const adding = await read($, isAdding)
     const j = await read($, job)
+    const note = await read($, notice)
     const typingNow = v.phase === 'ask' && v.card?.kind !== 'lesson' && m === 'type' && Boolean(Input)
     const scopeName = v.scope ? v.courseTitle || v.scope : 'All courses'
     const rule = '─'.repeat(Math.max(8, Math.min(60, e.props.bodyColumns - 6)))
@@ -493,6 +532,14 @@ export const register: Register = on => {
               ✗ Couldn't add “{j.label}”: {j.error}
             </Text>
             <Button key="dismiss-job" hotkey={typingNow ? undefined : 'x'} plain dimColor label="dismiss" onPress={() => update($, job, () => null)} />
+          </Box>
+        ) : null}
+        {note ? (
+          <Box gap={1}>
+            <Text color={note.tone === 'warning' ? 'warning' : 'suggestion'}>
+              {note.tone === 'warning' ? '⚠' : '↑'} {note.text}
+            </Text>
+            <Button key="dismiss-notice" plain dimColor label="dismiss" onPress={() => update($, notice, () => null)} />
           </Box>
         ) : null}
         {e.props.isFocused ? null : (

@@ -51,9 +51,9 @@ func add(args []string) error {
 			if err != nil {
 				return err
 			}
-			return installCourse(abs, filepath.Base(abs), dest, restartServer)
+			return installCourse(abs, filepath.Base(abs), dest, reloadServer)
 		}
-		return addFromGallery(name, envOr("TAUKO_GALLERY_ARCHIVE", galleryArchive), dest, restartServer)
+		return addFromGallery(name, envOr("TAUKO_GALLERY_ARCHIVE", galleryArchive), dest, reloadServer)
 	default:
 		fl.Usage()
 		return errors.New("give one course id or folder")
@@ -84,7 +84,7 @@ func listGallery(url string) error {
 }
 
 // addFromGallery downloads the repo archive and installs examples/courses/<id> from it.
-func addFromGallery(id, archiveURL, dest string, restart func() error) error {
+func addFromGallery(id, archiveURL, dest string, reload func() error) error {
 	if strings.ContainsAny(id, `/\.`) {
 		return fmt.Errorf("%q is not a course id or a folder", id)
 	}
@@ -101,7 +101,7 @@ func addFromGallery(id, archiveURL, dest string, restart func() error) error {
 	if n == 0 {
 		return fmt.Errorf("no course %q in the gallery; run `tauko add` to list them", id)
 	}
-	return installCourse(filepath.Join(tmp, id), id, dest, restart)
+	return installCourse(filepath.Join(tmp, id), id, dest, reload)
 }
 
 // extractCourse copies <repo>/examples/courses/<id>/** from a .tar.gz at url into dir/<id>.
@@ -154,7 +154,7 @@ func extractCourse(url, id, dir string) (int, error) {
 
 // installCourse validates the course in srcDir next to the installed ones (so its IDs
 // can't clash) and copies it into dest/name.
-func installCourse(srcDir, name, dest string, restart func() error) error {
+func installCourse(srcDir, name, dest string, reload func() error) error {
 	if _, err := os.Stat(filepath.Join(dest, name)); err == nil {
 		return fmt.Errorf("%s is already installed (%s)", name, filepath.Join(dest, name))
 	}
@@ -203,11 +203,11 @@ func installCourse(srcDir, name, dest string, restart func() error) error {
 		return err
 	}
 	ok(fmt.Sprintf("installed %s (%d cards) to %s", name, cards, filepath.Join(dest, name)))
-	if restart != nil {
-		if err := restart(); err != nil {
+	if reload != nil {
+		if err := reload(); err != nil {
 			return err
 		}
-		ok("server restarted")
+		ok("loaded into the server")
 	}
 	fmt.Printf("\nStudy it: press %sc%s in the tauko pane, or run %stauko course %s%s\n", bold, reset, bold, meta.ID, reset)
 	return nil

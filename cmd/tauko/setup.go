@@ -104,6 +104,15 @@ func doctor() error {
 	up := newClient(500 * time.Millisecond).up()
 	check(up, "server answers on "+serverURL(), "run `tauko ensure`, or see ~/.tauko/serve.log")
 	if up {
+		v, _ := serverVersion(newClient(time.Second))
+		running := v.Version
+		if running == "" {
+			running = "older than v0.5.2"
+		}
+		check(running == version || version == "dev", "server runs tauko "+running, "run `tauko restart` to start this version")
+		if v.Update != "" {
+			warn("tauko " + v.Update + " is out: run `tauko update`")
+		}
 		var s statsResp
 		if err := newClient(time.Second).do("GET", "/api/stats", nil, &s); err == nil {
 			ok(fmt.Sprintf("%d cards · %d due · %d new left today", s.Cards, s.Due, s.NewLeft))
