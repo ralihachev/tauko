@@ -96,6 +96,8 @@ declare module 'claude-code' {
       gallery: Shaped<Gallery>
       job: Shaped<Job | null>
       notice: Shaped<Notice | null>
+      rev: number
+      sessionKey: string
     }
   }
 }

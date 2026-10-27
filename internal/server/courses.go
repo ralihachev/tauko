@@ -133,6 +133,7 @@ func (s *Server) startJob(w http.ResponseWriter, job *Job, work func(ctx context
 			return
 		}
 		s.job.State, s.job.Step, s.job.CourseID, s.job.CourseTitle = "done", "", id, title
+		s.rev++
 	}()
 	writeJSON(w, snapshot)
 }

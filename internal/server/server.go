@@ -45,9 +45,11 @@ type Server struct {
 	cfg   Config
 	now   func() time.Time
 
-	mu     sync.Mutex
-	signal Signal
-	job    *Job
+	mu       sync.Mutex
+	signal   Signal            // the state over all sessions
+	sessions map[string]Signal // each Claude Code session's own state
+	rev      int               // counts changes to what clients show; see sync.go
+	job      *Job
 
 	latest        string // the latest release, from the update check
 	latestChecked time.Time
@@ -109,10 +111,11 @@ func (s *Server) Handler(static fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/job", s.handleGetJob)
 	mux.HandleFunc("POST /api/reload", s.handleReload)
 	mux.HandleFunc("GET /api/version", s.handleVersion)
+	mux.HandleFunc("GET /api/sync", s.handleSync)
 	mux.HandleFunc("GET /api/signal", s.handleGetSignal)
 	mux.HandleFunc("POST /api/signal", s.handleSetSignal)
 	mux.Handle("GET /", http.FileServerFS(static))
-	return s.auth(mux)
+	return s.auth(s.counting(mux))
 }
 
 func (s *Server) auth(next http.Handler) http.Handler {
@@ -150,6 +153,7 @@ type nextResponse struct {
 	Chars       []string      `json:"chars,omitempty"`
 	Scope       string        `json:"scope"`                // the course being studied; "" = all courses
 	NoCourses   bool          `json:"no_courses,omitempty"` // nothing installed yet
+	Rev         int           `json:"rev"`                  // the change counter this card is current for (GET /api/sync)
 }
 
 // practiceGap keeps a just-practiced card from coming straight back in practice mode.
@@ -160,6 +164,9 @@ const practiceGap = 10 * time.Minute
 // ?course= or ?unit= set the scope (default: the active course setting); ?exclude= skips
 // a card (the one just answered).
 func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	rev := s.rev
+	s.mu.Unlock()
 	q := r.URL.Query()
 	course, unit, exclude := q.Get("course"), q.Get("unit"), q.Get("exclude")
 	if !q.Has("course") && unit == "" {
@@ -194,7 +201,7 @@ func (s *Server) handleNext(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course, NoCourses: len(s.library().Courses) == 0}
+	resp := nextResponse{Due: len(due), NewLeft: newLeft, Scope: course, NoCourses: len(s.library().Courses) == 0, Rev: rev}
 	for _, c := range due {
 		if c.ID != exclude {
 			resp.Card = &c
@@ -676,30 +683,6 @@ func (s *Server) handleQuizResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
-}
-
-func (s *Server) handleGetSignal(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	writeJSON(w, s.signal)
-}
-
-func (s *Server) handleSetSignal(w http.ResponseWriter, r *http.Request) {
-	var req Signal
-	if !readJSON(w, r, &req) {
-		return
-	}
-	if req.State != "busy" && req.State != "idle" {
-		http.Error(w, `state must be "busy" or "idle"`, http.StatusBadRequest)
-		return
-	}
-	s.mu.Lock()
-	if s.signal.State != req.State {
-		s.signal = Signal{State: req.State, Since: s.now()}
-	}
-	sig := s.signal
-	s.mu.Unlock()
-	writeJSON(w, sig)
 }
 
 func dayStart(t time.Time) time.Time {

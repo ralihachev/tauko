@@ -48,6 +48,10 @@ const gallery = atom({ plugin: 'tauko', key: 'gallery' } as const, { entries: []
 const job = atom({ plugin: 'tauko', key: 'job' } as const, null as Job | null, { shape: 'job-1' })
 // A stale pane, an old server, or a newer release: one line above the card.
 const notice = atom({ plugin: 'tauko', key: 'notice' } as const, null as Notice | null, { shape: 'notice-1' })
+// The server's change counter the shown card is current for; see sync().
+const rev = atom({ plugin: 'tauko', key: 'rev' } as const, -1)
+// Names this session to the server, so one session finishing doesn't mark another idle.
+const sessionKey = atom({ plugin: 'tauko', key: 'sessionKey' } as const, '')
 
 type NextResponse = {
   card: Card | null
@@ -60,6 +64,7 @@ type NextResponse = {
   next_due?: string
   focus?: string
   course_title?: string
+  rev?: number
 }
 
 async function api<T>($: EngineInterface, method: string, path: string, body?: unknown): Promise<T> {
@@ -78,6 +83,7 @@ async function loadNext($: EngineInterface): Promise<void> {
   const exclude = await read($, lastId)
   try {
     const next = await api<NextResponse>($, 'GET', '/api/next?exclude=' + encodeURIComponent(exclude))
+    await update($, rev, () => next.rev ?? -1)
     if (!next.card) {
       const when = next.next_due ? relTime(next.next_due) : ''
       if (next.no_courses) {
@@ -256,7 +262,7 @@ async function ensureServer($: EngineInterface): Promise<boolean> {
 // signal tells other clients (browser, phone) whether Claude is busy. Best effort.
 async function signal($: EngineInterface, state: 'busy' | 'idle'): Promise<void> {
   try {
-    await api($, 'POST', '/api/signal', { state })
+    await api($, 'POST', '/api/signal', { state, session: await read($, sessionKey) })
   } catch {
     // Server down: the pane says so when it opens.
   }
@@ -268,6 +274,8 @@ async function refreshStatus($: EngineInterface): Promise<void> {
   try {
     const s = await api<StatsResponse>($, 'GET', '/api/stats')
     const streak = s.stats.streak_days > 0 ? ` · 🔥${s.stats.streak_days}` : ''
+    // Today's reviews from every client, not only this pane.
+    await update($, reviewed, () => s.stats.reviews_today)
     $.ui.status(`📖 ${s.due + s.new_left} to do · ${s.stats.reviews_today} today${streak}`)
   } catch {
     $.ui.status((await read($, isInstalled)) ? 'tauko: server off' : 'tauko: not installed')
@@ -348,6 +356,40 @@ const installCourse = ($: EngineInterface, id: string) => startJob($, '/api/cour
 
 // One poll at a time; a reload starts over and session.start picks a running job up again.
 let poll: Timer | undefined
+let syncTimer: Timer | undefined
+
+// sync keeps this pane in step with the other sessions, the terminal and the browser.
+// When the server's change counter moves, a card was answered, the course switched or a
+// course added elsewhere, so a card waiting for an answer is fetched again; one being
+// answered (revealed, or with an explanation open) is left alone.
+async function sync($: EngineInterface): Promise<void> {
+  let s: { rev: number; job: Job | null }
+  try {
+    s = await api<{ rev: number; job: Job | null }>($, 'GET', '/api/sync')
+  } catch {
+    return // Down, or older than v0.5.2; the pane says so when it opens.
+  }
+  if (typeof s?.rev !== 'number') {
+    return
+  }
+  if (s.job?.state === 'running' && !poll) {
+    // A course being made from another session: follow it here too.
+    const running = s.job
+    await update($, job, () => running)
+    watchJob($)
+  }
+  const known = await read($, rev)
+  if (s.rev === known) {
+    return
+  }
+  await update($, rev, () => s.rev)
+  const v = await read($, view)
+  const waiting = (v.phase === 'ask' && !v.explanation && !v.isExplaining) || v.phase === 'empty' || v.phase === 'offline'
+  if (known >= 0 && waiting) {
+    await loadNext($)
+  }
+  await refreshStatus($)
+}
 
 function watchJob($: EngineInterface): void {
   poll?.cancel()
@@ -432,6 +474,13 @@ export const register: Register = on => {
     await $.command.register({
       name: 'tauko',
       description: 'Open the tauko flashcard pane',
+    })
+    if (!(await read($, sessionKey))) {
+      await update($, sessionKey, () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
+    }
+    syncTimer?.cancel()
+    syncTimer = $.clock.every(3000, () => {
+      void sync($).catch(err => $.ui.log('tauko: ' + String(err)))
     })
     // Start the server in the background; the session doesn't wait for it.
     void (async () => {

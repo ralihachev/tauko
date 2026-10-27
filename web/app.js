@@ -74,6 +74,22 @@ async function pollSignal() {
   } catch {}
 }
 
+// Other clients (Claude Code panes, the terminal) study the same cards. When the server's
+// change counter moves, fetch the card again, unless this one is being answered.
+async function pollSync() {
+  try {
+    const s = await api("GET", "/api/sync");
+    if (typeof s.rev !== "number" || s.rev === state.rev) return;
+    const known = state.rev;
+    state.rev = s.rev;
+    const typing = $("#answer") && $("#answer").value.trim() !== "";
+    if (known !== undefined && $("#view-learn") && !$("#view-learn").hidden && state.phase === "ask" && !typing && !state.explaining && !state.explanation) {
+      await loadNext();
+    }
+    refreshCounts();
+  } catch {}
+}
+
 // ---------- course scope ----------
 
 // The scope bar above the card: which course you study, shared with every client.
@@ -111,6 +127,7 @@ async function loadNext() {
     return;
   }
   state.card = state.next.card;
+  state.rev = state.next.rev;
   renderScope().catch(() => {});
   state.phase = "ask";
   state.check = null;
@@ -522,5 +539,6 @@ show("learn");
 refreshCounts();
 pollSignal();
 setInterval(pollSignal, 3000);
+setInterval(pollSync, 3000);
 setInterval(refreshCounts, 60000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

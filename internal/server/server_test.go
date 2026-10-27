@@ -507,3 +507,54 @@ func TestNewer(t *testing.T) {
 		t.Error("SameMinor")
 	}
 }
+
+func TestSyncCountsChangesFromOtherClients(t *testing.T) {
+	h := newTestServer(t)
+	var before, after syncResponse
+	call(t, h, "GET", "/api/sync", "", &before)
+
+	// Asking for a card or checking an answer changes nothing others show.
+	call(t, h, "GET", "/api/next", "", nil)
+	call(t, h, "POST", "/api/check", `{"card_id": "fi-q1", "answer": "kissa"}`, nil)
+	call(t, h, "GET", "/api/sync", "", &after)
+	if after.Rev != before.Rev {
+		t.Fatalf("rev moved without a change: %d → %d", before.Rev, after.Rev)
+	}
+
+	// Grading does, and a failed request doesn't.
+	call(t, h, "POST", "/api/review", `{"card_id": "fi-q1", "rating": 3}`, nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("POST", "/api/review", strings.NewReader(`{"card_id": "nope", "rating": 3}`)))
+	call(t, h, "GET", "/api/sync", "", &after)
+	if rec.Code == http.StatusOK || after.Rev != before.Rev+1 {
+		t.Fatalf("rev %d → %d (bad review: %d)", before.Rev, after.Rev, rec.Code)
+	}
+}
+
+func TestBusyWhileAnySessionIs(t *testing.T) {
+	h := newTestServer(t)
+	var sig Signal
+	call(t, h, "GET", "/api/signal", "", &sig)
+	if sig.State != "" {
+		t.Fatalf("before any report: %q", sig.State)
+	}
+	call(t, h, "POST", "/api/signal", `{"state": "busy", "session": "a"}`, nil)
+	call(t, h, "POST", "/api/signal", `{"state": "busy", "session": "b"}`, nil)
+	call(t, h, "POST", "/api/signal", `{"state": "idle", "session": "a"}`, &sig)
+	if sig.State != "busy" {
+		t.Fatalf("a done, b still working: %q", sig.State)
+	}
+	call(t, h, "POST", "/api/signal", `{"state": "idle", "session": "b"}`, &sig)
+	if sig.State != "idle" {
+		t.Fatalf("both done: %q", sig.State)
+	}
+
+	// A session closed mid-turn stops counting after a while.
+	call(t, h, "POST", "/api/signal", `{"state": "busy", "session": "c"}`, nil)
+	start := testServer.now()
+	testServer.now = func() time.Time { return start.Add(busyFor + time.Minute) }
+	call(t, h, "GET", "/api/signal", "", &sig)
+	if sig.State != "idle" {
+		t.Fatalf("stale session: %q", sig.State)
+	}
+}

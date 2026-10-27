@@ -447,3 +447,56 @@ test('a newer release is mentioned; the same release says nothing', async ($, on
   expect(await ui.find({ type: 'Text', text: /restart Claude Code|older than/ })).toBeUndefined()
   await ui.unmount()
 })
+
+test('a card answered in another session is replaced; one being answered here stays', async ($, on) => {
+  const clock = mock.clock(on)
+  const OTHER = { ...CARD, id: 'b1-01-g02', prompt: 'Liisa on ___ kuin Matti.' }
+  // The fake server: another session answers CARD, which moves the change counter.
+  let rev = 1
+  const signals: unknown[] = []
+  on('env.get', () => ({ value: '/home/u' }))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('http.fetch', (_, e) => {
+    if (e.url.endsWith('/api/sync')) return json({ rev, job: null })
+    if (e.url.includes('/api/next')) return json({ card: rev === 1 ? CARD : OTHER, is_new: false, due: 1, new_left: 0, rev })
+    if (e.url.endsWith('/api/check')) return json({ verdict: 'wrong', expected: 'pidempi', suggested_rating: 1 })
+    if (e.url.endsWith('/api/signal')) {
+      signals.push(JSON.parse(e.init?.body ?? '{}'))
+      return json({ state: 'busy' })
+    }
+    return json({ due: 1, new_left: 0, stats: { reviews_today: 5, streak_days: 0 } })
+  })
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('command.register', () => ({ value: { command: 'tauko' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('prompt.submit', (_, e) => ({ text: e.text }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await settle()
+  await $.prompt.submit({ text: 'go' })
+  await settle()
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /Pekka/ }))?.text).toBe(CARD.prompt)
+  expect(signals[0]).toMatchObject({ state: 'busy', session: expect.stringMatching(/.+-.+/) })
+
+  // Nothing changed: the same card.
+  await clock.advance(3000)
+  await settle()
+  expect(await ui.find({ type: 'Text', text: /Pekka/ })).toBeDefined()
+
+  // Answered elsewhere: the next card, and today's count from the server.
+  rev = 2
+  await clock.advance(3000)
+  await settle()
+  expect((await ui.find({ type: 'Text', text: /Liisa/ }))?.text).toBe(OTHER.prompt)
+  expect((await ui.find({ type: 'Text', text: /5 ✓/ }))?.text).toContain('5 ✓')
+
+  // Revealed here: a change elsewhere doesn't take the card away.
+  await ui.input({ key: 'answer:b1-01-g02', text: 'x', kind: 'submit' })
+  rev = 3
+  await clock.advance(3000)
+  await settle()
+  expect(await ui.find({ type: 'Text', text: /Not quite/ })).toBeDefined()
+  await ui.unmount()
+})

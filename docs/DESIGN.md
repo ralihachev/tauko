@@ -139,6 +139,10 @@ Content is not in the DB. A card without a `card_state` row is *new*.
   `tauko doctor` mention a newer release, and `tauko update` reruns the installer
 - `tauko gen` and `tauko add` load the new course with `POST /api/reload` instead of restarting
   the server
+- Several sessions in step: the server counts changes (`GET /api/sync`), and every pane and the
+  browser poll it every 3 s, fetching their card again when another client answered it, switched
+  the course or added one; busy/idle is kept per session, so Claude counts as working while any
+  session is
 
 **Product (if it works for me)**
 - Multi-user accounts, sync, hosted
